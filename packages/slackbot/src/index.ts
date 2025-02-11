@@ -1,9 +1,9 @@
 import { App } from '@slack/bolt'
-import { slackWorkspaces, tripleWhaleAccounts, workspaceConnections } from './lib/db/schema'
-import db from './lib/db/index'
 import { TripleWhaleClient } from './lib/triplewhale'
 import { eq, and } from 'drizzle-orm'
 import { URLSearchParams } from 'url'
+import db from '@lighthouse/database'
+import { tripleWhaleAccounts, workspaceConnections, slackWorkspaces } from '@lighthouse/database/src/schema'
 
 const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET!,
