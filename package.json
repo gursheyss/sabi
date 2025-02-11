@@ -15,5 +15,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "better-auth": "^1.1.17"
   }
 }
