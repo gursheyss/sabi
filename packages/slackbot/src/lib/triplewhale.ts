@@ -1,5 +1,5 @@
-import db from './db'
-import { accounts } from './db/schema'
+import db from '@lighthouse/database'
+import { tripleWhaleAccounts } from '@lighthouse/database/src/schema'
 import { eq } from 'drizzle-orm'
 
 interface TokenResponse {
@@ -32,7 +32,7 @@ export class TripleWhaleClient {
 
     // Update tokens in database
     const now = new Date();
-    await db.update(accounts)
+    await db.update(tripleWhaleAccounts)
       .set({
         tripleWhaleAccessToken: tokens.access_token,
         tripleWhaleRefreshToken: tokens.refresh_token,
@@ -40,14 +40,14 @@ export class TripleWhaleClient {
         tripleWhaleRefreshTokenExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days
         updatedAt: now
       })
-      .where(eq(accounts.id, teamId));
+      .where(eq(tripleWhaleAccounts.id, teamId));
 
     return tokens;
   }
 
   static async getValidAccessToken(teamId: string): Promise<string> {
-    const workspace = await db.query.accounts.findFirst({
-      where: eq(accounts.id, teamId)
+    const workspace = await db.query.tripleWhaleAccounts.findFirst({
+      where: eq(tripleWhaleAccounts.id, teamId)
     });
 
     if (!workspace) {
@@ -78,8 +78,8 @@ export class TripleWhaleClient {
 
   static async getSignInToken(teamId: string): Promise<string> {
     console.log('teamId', teamId)
-    const workspace = await db.query.accounts.findFirst({
-      where: eq(accounts.id, teamId)
+    const workspace = await db.query.tripleWhaleAccounts.findFirst({
+      where: eq(tripleWhaleAccounts.id, teamId)
     });
 
     if (!workspace) {
@@ -108,8 +108,8 @@ export class TripleWhaleClient {
 
   static async getIntegrationsUrl(teamId: string): Promise<string> {
     console.log('teamId', teamId)
-    const workspace = await db.query.accounts.findFirst({
-      where: eq(accounts.id, teamId)
+    const workspace = await db.query.tripleWhaleAccounts.findFirst({
+      where: eq(tripleWhaleAccounts.id, teamId)
     });
 
     console.log('workspace', workspace)
