@@ -1,0 +1,1 @@
+ALTER TABLE "accounts" ADD COLUMN "triple_whale_account_id" text;

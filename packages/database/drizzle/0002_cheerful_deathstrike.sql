@@ -1,0 +1,1 @@
+ALTER TABLE "accounts" DROP COLUMN "triple_whale_account_id";
