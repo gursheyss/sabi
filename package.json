@@ -6,7 +6,9 @@
   ],
   "scripts": {
     "build": "bun install && bun run build:all",
-    "build:all": "bun run --cwd packages/www build",
+    "build:all": "bun run build:www && bun run build:slackbot",
+    "build:www": "bun run --cwd packages/www build",
+    "build:slackbot": "bun run --cwd packages/slackbot build",
     "start:www": "bun run --cwd packages/www start",
     "start:slackbot": "bun run --cwd packages/slackbot src/index.ts",
     "db:migrate": "bun run --cwd packages/database db:migrate"
