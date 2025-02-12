@@ -317,14 +317,12 @@ app.command('/connect', async ({ command, ack, respond }) => {
     const authUrl = `https://api.triplewhale.com/api/v2/orcabase/dev/auth?${params.toString()}`
 
     await respond({
-      text: `Click this link to connect a new Triple Whale account to your workspace:\n${authUrl}\n\nThis account will be available to the entire workspace.`,
-      response_type: 'ephemeral'
+      text: `Click this link to connect a new Triple Whale account to your workspace:\n${authUrl}\n\nThis account will be available to the entire workspace.`
     })
   } catch (error) {
     console.error('Error in connect flow:', error)
     await respond({
-      text: 'Sorry, something went wrong. Please try again.',
-      response_type: 'ephemeral'
+      text: 'Sorry, something went wrong. Please try again.'
     })
   }
 })
@@ -348,8 +346,7 @@ app.command('/integrations', async ({ command, ack, respond }) => {
 
     if (!connection?.accessToken) {
       await respond({
-        text: 'Your workspace needs to connect to Triple Whale first. Use `/connect` to get started.',
-        response_type: 'ephemeral'
+        text: 'Your workspace needs to connect to Triple Whale first. Use `/connect` to get started.'
       })
       return
     }
@@ -359,21 +356,18 @@ app.command('/integrations', async ({ command, ack, respond }) => {
     const integrationsUrl = await TripleWhaleClient.getIntegrationsUrl(accountId)
 
     await respond({
-      text: `Click here to manage your workspace's Triple Whale integrations:\n${integrationsUrl}`,
-      response_type: 'ephemeral'
+      text: `Click here to manage your workspace's Triple Whale integrations:\n${integrationsUrl}`
     })
   } catch (error) {
     if (error instanceof Error && error.message === 'Refresh token expired. User needs to reauthenticate.') {
       await respond({
-        text: 'Your workspace\'s Triple Whale connection has expired. Please use `/connect` to reconnect.',
-        response_type: 'ephemeral'
+        text: 'Your workspace\'s Triple Whale connection has expired. Please use `/connect` to reconnect.'
       })
       return
     }
     console.error('Error getting integrations URL:', error)
     await respond({
-      text: 'Sorry, something went wrong. Please try again.',
-      response_type: 'ephemeral'
+      text: 'Sorry, something went wrong. Please try again.'
     })
   }
 })
@@ -393,8 +387,7 @@ app.command('/manage-connections', async ({ command, ack, respond }) => {
 
     if (connections.length === 0) {
       await respond({
-        text: 'No Triple Whale accounts connected. Use `/connect` to connect an account.',
-        response_type: 'ephemeral'
+        text: 'No Triple Whale accounts connected. Use `/connect` to connect an account.'
       })
       return
     }
@@ -404,14 +397,12 @@ app.command('/manage-connections', async ({ command, ack, respond }) => {
     ).join('\n')
 
     await respond({
-      text: `Connected Triple Whale accounts:\n${connectionList}\n\nUse \`/set-default-account [number]\` to set the default account.`,
-      response_type: 'ephemeral'
+      text: `Connected Triple Whale accounts:\n${connectionList}\n\nUse \`/set-default-account [number]\` to set the default account.`
     })
   } catch (error) {
     console.error('Error listing connections:', error)
     await respond({
-      text: 'Sorry, something went wrong. Please try again.',
-      response_type: 'ephemeral'
+      text: 'Sorry, something went wrong. Please try again.'
     })
   }
 })
@@ -423,8 +414,7 @@ app.command('/set-default-account', async ({ command, ack, respond }) => {
     const accountNumber = parseInt(command.text)
     if (isNaN(accountNumber)) {
       await respond({
-        text: 'Please provide a valid account number. Use `/manage-connections` to see the list of accounts.',
-        response_type: 'ephemeral'
+        text: 'Please provide a valid account number. Use `/manage-connections` to see the list of accounts.'
       })
       return
     }
@@ -435,8 +425,7 @@ app.command('/set-default-account', async ({ command, ack, respond }) => {
 
     if (accountNumber < 1 || accountNumber > connections.length) {
       await respond({
-        text: 'Invalid account number. Use `/manage-connections` to see the list of accounts.',
-        response_type: 'ephemeral'
+        text: 'Invalid account number. Use `/manage-connections` to see the list of accounts.'
       })
       return
     }
@@ -455,14 +444,12 @@ app.command('/set-default-account', async ({ command, ack, respond }) => {
       ))
 
     await respond({
-      text: 'Default account updated successfully.',
-      response_type: 'ephemeral'
+      text: 'Default account updated successfully.'
     })
   } catch (error) {
     console.error('Error setting default account:', error)
     await respond({
-      text: 'Sorry, something went wrong. Please try again.',
-      response_type: 'ephemeral'
+      text: 'Sorry, something went wrong. Please try again.'
     })
   }
 })
