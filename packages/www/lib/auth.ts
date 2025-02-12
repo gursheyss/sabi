@@ -4,7 +4,8 @@ import db from '@lighthouse/database'
 
 export const auth = betterAuth({
   emailAndPassword: {
-    enabled: true
+    enabled: true,
+    autoSignIn: true,
   },
   database: drizzleAdapter(db, {
     provider: "pg"

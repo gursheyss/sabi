@@ -1,15 +1,23 @@
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { getBrands } from "@/app/_actions/brands";
+import { BrandGrid } from "@/components/brand-grid";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-export default function MyBrandsPage() {
+export default async function MyBrandsPage() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user?.id) {
+    redirect("/auth/login");
+  }
+
+  const brands = await getBrands();
+
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-      <div className="flex items-center justify-between">
-        <Button>
-          <Plus />
-          Add New Brand
-        </Button>
-      </div>
+    <div className="p-4 pt-0">
+      <BrandGrid initialBrands={brands} />
     </div>
   );
 }

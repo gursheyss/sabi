@@ -88,3 +88,23 @@ export const workspaceConnections = pgTable('workspace_connections', {
 }, (table) => ({
   pk: primaryKey(table.slackWorkspaceId, table.tripleWhaleAccountId),
 }));
+
+export const brands = pgTable('brands', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  website: text('website').notNull(),
+  userId: text('user_id').notNull().references(() => user.id),
+  tripleWhaleAccountId: text('triple_whale_account_id').references(() => tripleWhaleAccounts.id),
+  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const workspaceBrands = pgTable('workspace_brands', {
+  workspaceId: text('workspace_id').notNull().references(() => slackWorkspaces.id),
+  brandId: text('brand_id').notNull().references(() => brands.id),
+  isDefault: text('is_default').default('false'),
+  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  pk: primaryKey(table.workspaceId, table.brandId),
+}));
