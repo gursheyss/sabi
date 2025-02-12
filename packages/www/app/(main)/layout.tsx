@@ -1,3 +1,4 @@
+import { AppSidebar } from "@/components/app-sidebar";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -13,6 +14,7 @@ export default function MainLayout({
 }) {
   return (
     <SidebarProvider>
+      <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2">
           <div className="flex items-center gap-2 px-4">
