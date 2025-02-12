@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import {
   text,
   timestamp,
@@ -16,6 +17,10 @@ export const user = pgTable("user", {
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
 });
+
+export const userRelations = relations(user, ({ many }) => ({
+  brands: many(brands),
+}));
 
 export const session = pgTable("session", {
   id: text("id").primaryKey(),
@@ -57,7 +62,6 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at"),
 });
 
-
 export const slackWorkspaces = pgTable('slack_workspaces', {
   id: text('id').primaryKey(),
   name: text('name'),
@@ -79,6 +83,10 @@ export const tripleWhaleAccounts = pgTable('triple_whale_accounts', {
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const tripleWhaleAccountsRelations = relations(tripleWhaleAccounts, ({ many }) => ({
+  brands: many(brands),
+}));
+
 export const workspaceConnections = pgTable('workspace_connections', {
   slackWorkspaceId: text('slack_workspace_id').notNull().references(() => slackWorkspaces.id),
   tripleWhaleAccountId: text('triple_whale_account_id').notNull().references(() => tripleWhaleAccounts.id),
@@ -98,6 +106,17 @@ export const brands = pgTable('brands', {
   createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const brandsRelations = relations(brands, ({ one }) => ({
+  tripleWhaleAccount: one(tripleWhaleAccounts, {
+    fields: [brands.tripleWhaleAccountId],
+    references: [tripleWhaleAccounts.id],
+  }),
+  user: one(user, {
+    fields: [brands.userId],
+    references: [user.id],
+  }),
+}));
 
 export const workspaceBrands = pgTable('workspace_brands', {
   workspaceId: text('workspace_id').notNull().references(() => slackWorkspaces.id),

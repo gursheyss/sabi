@@ -24,8 +24,30 @@ const routes = [
 export function Breadcrumbs() {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
-  const currentRoute = routes.find((route) => route.url === pathname);
 
+  // Handle dynamic routes
+  if (segments.includes("connections")) {
+    const brandId = segments[segments.indexOf("my-brands") + 1];
+    return (
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/my-brands">My Brands</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Manage Connections</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  }
+
+  const currentRoute = routes.find((route) => route.url === pathname);
   if (!currentRoute) return null;
 
   return (

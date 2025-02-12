@@ -7,14 +7,13 @@ import { BrandCard } from "@/components/brand-card";
 import { AddBrandModal } from "@/components/add-brand-modal";
 import { createBrand } from "@/app/_actions/brands";
 import { toast } from "sonner";
+import { tripleWhaleAccounts } from "@lighthouse/database/src/schema";
 
 interface Brand {
   id: string;
   name: string;
   website: string;
-  tripleWhaleAccount: {
-    tripleWhaleAccessToken: string | null;
-  } | null;
+  tripleWhaleAccount: typeof tripleWhaleAccounts.$inferSelect | null;
 }
 
 interface BrandGridProps {
