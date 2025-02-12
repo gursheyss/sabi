@@ -533,8 +533,23 @@ app.event('app_mention', async ({ event, client, say }) => {
     await client.chat.update({
       channel: event.channel,
       ts: loadingMessage.ts!,
-      text: message
+      text: 'Here is your Triple Whale data:'
     })
+
+    const MAX_MESSAGE_LENGTH = 3500
+    const messageChunks = []
+    
+    for (let i = 0; i < message.length; i += MAX_MESSAGE_LENGTH) {
+      messageChunks.push(message.slice(i, i + MAX_MESSAGE_LENGTH))
+    }
+
+    for (const chunk of messageChunks) {
+      await say({
+        text: chunk,
+        thread_ts: event.thread_ts || event.ts
+      })
+    }
+
   } catch (error) {
     console.error('Error in app_mention handler:', error)
 
