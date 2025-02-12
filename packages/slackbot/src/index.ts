@@ -329,6 +329,55 @@ app.command('/connect', async ({ command, ack, respond }) => {
   }
 })
 
+app.command('/integrations', async ({ command, ack, respond }) => {
+  await ack()
+
+  try {
+    const connection = await db.select({
+      accountId: workspaceConnections.tripleWhaleAccountId,
+      accessToken: tripleWhaleAccounts.tripleWhaleAccessToken
+    })
+      .from(workspaceConnections)
+      .innerJoin(tripleWhaleAccounts, eq(workspaceConnections.tripleWhaleAccountId, tripleWhaleAccounts.id))
+      .where(and(
+        eq(workspaceConnections.slackWorkspaceId, command.team_id),
+        eq(workspaceConnections.isDefault, 'true')
+      ))
+      .limit(1)
+      .then(results => results[0])
+
+    if (!connection?.accessToken) {
+      await respond({
+        text: 'Your workspace needs to connect to Triple Whale first. Use `/connect` to get started.',
+        response_type: 'ephemeral'
+      })
+      return
+    }
+
+    const accountId = connection.accountId
+
+    const integrationsUrl = await TripleWhaleClient.getIntegrationsUrl(accountId)
+
+    await respond({
+      text: `Click here to manage your workspace's Triple Whale integrations:\n${integrationsUrl}`,
+      response_type: 'ephemeral'
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Refresh token expired. User needs to reauthenticate.') {
+      await respond({
+        text: 'Your workspace\'s Triple Whale connection has expired. Please use `/connect` to reconnect.',
+        response_type: 'ephemeral'
+      })
+      return
+    }
+    console.error('Error getting integrations URL:', error)
+    await respond({
+      text: 'Sorry, something went wrong. Please try again.',
+      response_type: 'ephemeral'
+    })
+  }
+})
+
 app.command('/manage-connections', async ({ command, ack, respond }) => {
   await ack()
 
