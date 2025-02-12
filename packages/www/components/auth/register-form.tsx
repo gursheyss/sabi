@@ -46,7 +46,7 @@ export function RegisterForm({
       }
 
       toast.success("Check your email to verify your account");
-      router.push("/auth/login");
+      router.push("/login");
     } catch (error) {
       console.error("Registration error:", error);
       toast.error("Failed to create account");
@@ -111,7 +111,7 @@ export function RegisterForm({
             </div>
             <div className="mt-4 text-center text-sm">
               Already have an account?{" "}
-              <a href="/auth/login" className="underline underline-offset-4">
+              <a href="/login" className="underline underline-offset-4">
                 Login
               </a>
             </div>

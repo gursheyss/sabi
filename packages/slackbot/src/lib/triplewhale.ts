@@ -7,6 +7,12 @@ interface TokenResponse {
   refresh_token: string
   expires_in: number
   token_type: string
+  scope?: string
+}
+
+interface TokenErrorResponse {
+  error: string
+  error_description?: string
 }
 
 export class TripleWhaleClient {
@@ -25,10 +31,18 @@ export class TripleWhaleClient {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to refresh tokens');
+      const errorData = await response.json() as TokenErrorResponse;
+      if (errorData.error === 'invalid_grant') {
+        throw new Error('Refresh token expired. User needs to reauthenticate.');
+      }
+      throw new Error(`Failed to refresh tokens: ${errorData.error_description || errorData.error}`);
     }
 
-    const tokens = await response.json();
+    const tokens = await response.json() as TokenResponse;
+
+    if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_in) {
+      throw new Error('Invalid token response from Triple Whale');
+    }
 
     // Update tokens in database
     const now = new Date();

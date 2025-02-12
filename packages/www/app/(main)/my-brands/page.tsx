@@ -10,7 +10,7 @@ export default async function MyBrandsPage() {
   });
 
   if (!session?.user?.id) {
-    redirect("/auth/login");
+    redirect("/login");
   }
 
   const brands = await getBrands();

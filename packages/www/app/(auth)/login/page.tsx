@@ -13,10 +13,11 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="container relative flex h-[100vh] flex-col items-center justify-center">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+    <main className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-[350px]">
         <LoginForm />
       </div>
-    </div>
+      <p>{process.env.BETTER_AUTH_URL}</p>
+    </main>
   );
 }
