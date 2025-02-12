@@ -44,7 +44,7 @@ const app = new App({
           }
 
           const teamId = state?.replace('slack_team_', '')
-          const accountId = `lilosocial_${teamId}_${Date.now()}`
+          const accountId = `lilosocial_${teamId}`
 
           const tokenResponse = await fetch('https://api.triplewhale.com/api/v2/auth/oauth2/token', {
             method: 'POST',
@@ -73,7 +73,7 @@ const app = new App({
             const now = new Date()
             await db.insert(tripleWhaleAccounts).values({
               id: accountId,
-              name: `Triple Whale Account ${Date.now()}`,
+              name: `Triple Whale Account - ${teamId}`,
               tripleWhaleAccessToken: tokens.access_token,
               tripleWhaleRefreshToken: tokens.refresh_token,
               tripleWhaleAccessTokenExpiresAt: new Date(now.getTime() + tokens.expires_in * 1000),
@@ -279,7 +279,7 @@ app.command('/connect', async ({ command, ack, respond }) => {
   await ack()
 
   try {
-    const uniqueAccountId = `lilosocial_${command.team_id}_${Date.now()}`
+    const uniqueAccountId = `lilosocial_${command.team_id}`
 
     try {
       const registrationResponse = await fetch('https://api.triplewhale.com/api/v2/orcabase/dev/register-account', {
