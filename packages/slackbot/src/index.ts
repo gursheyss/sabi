@@ -527,7 +527,12 @@ app.event('app_mention', async ({ event, client, say }) => {
     if (result.isError) {
       message = `Error: ${result.error || 'An unknown error occurred'}`
     } else {
-      message = '```' + JSON.stringify(result, null, 2) + '```'
+      const { assistant, assistantConclusion } = result
+      const response = {
+        assistant,
+        ...(assistantConclusion ? { assistantConclusion } : {})
+      }
+      message = '```' + JSON.stringify(response, null, 2) + '```'
     }
 
     await client.chat.update({
