@@ -527,12 +527,7 @@ app.event('app_mention', async ({ event, client, say }) => {
     if (result.isError) {
       message = `Error: ${result.error || 'An unknown error occurred'}`
     } else {
-      const { assistant, assistantConclusion } = result
-      const response = {
-        assistant,
-        ...(assistantConclusion ? { assistantConclusion } : {})
-      }
-      message = '```' + JSON.stringify(response, null, 2) + '```'
+      message = result.assistant
     }
 
     await client.chat.update({
@@ -543,7 +538,7 @@ app.event('app_mention', async ({ event, client, say }) => {
 
     const MAX_MESSAGE_LENGTH = 3500
     const messageChunks = []
-    
+
     for (let i = 0; i < message.length; i += MAX_MESSAGE_LENGTH) {
       messageChunks.push(message.slice(i, i + MAX_MESSAGE_LENGTH))
     }
