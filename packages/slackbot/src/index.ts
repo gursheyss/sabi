@@ -532,13 +532,33 @@ app.event('app_mention', async ({ event, client, say }) => {
       if (result.responses && Array.isArray(result.responses)) {
         for (const resp of result.responses) {
           if (resp.assistant) {
-            messages.push(resp.assistant)
+            let formattedResponse = resp.assistant
+              .replace(/\*\*(.*?)\*\*/g, '*$1*')
+              .replace(/<<.*?>>/g, '')
+              .replace(/<!-- .*? -->/g, '')
+              .replace(/<.*?>/g, '')
+              .replace(/\n{3,}/g, '\n\n')
+              .trim()
+
+            if (formattedResponse) {
+              messages.push(formattedResponse)
+            }
           }
         }
       }
 
       if (result.assistantConclusion) {
-        messages.push('\n*Conclusion:*\n' + result.assistantConclusion)
+        let formattedConclusion = result.assistantConclusion
+          .replace(/\*\*(.*?)\*\*/g, '*$1*')
+          .replace(/<<.*?>>/g, '')
+          .replace(/<!-- .*? -->/g, '')
+          .replace(/<.*?>/g, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
+
+        if (formattedConclusion) {
+          messages.push('\n*Conclusion:*\n' + formattedConclusion)
+        }
       }
 
       if (messages.length === 0) {
@@ -549,14 +569,17 @@ app.event('app_mention', async ({ event, client, say }) => {
     await client.chat.update({
       channel: event.channel,
       ts: loadingMessage.ts!,
-      text: 'Here is your Triple Whale data:'
+      text: '📊 Here is your Triple Whale data:'
     })
 
     const MAX_MESSAGE_LENGTH = 3500
     const messageChunks = []
 
-    // Join all messages with newlines and then chunk
-    const fullMessage = messages.join('\n\n')
+    const fullMessage = messages
+      .join('\n\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+
     for (let i = 0; i < fullMessage.length; i += MAX_MESSAGE_LENGTH) {
       messageChunks.push(fullMessage.slice(i, i + MAX_MESSAGE_LENGTH))
     }
@@ -564,7 +587,8 @@ app.event('app_mention', async ({ event, client, say }) => {
     for (const chunk of messageChunks) {
       await say({
         text: chunk,
-        thread_ts: event.thread_ts || event.ts
+        thread_ts: event.thread_ts || event.ts,
+        mrkdwn: true
       })
     }
 
