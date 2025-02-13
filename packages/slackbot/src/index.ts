@@ -514,7 +514,9 @@ app.event('app_mention', async ({ event, client, say }) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${tripleWhaleAccessToken}`,
       },
-      body: JSON.stringify({ question: messageText })
+      body: JSON.stringify({
+        question: messageText + " do not output into a visualization, give me the data in text form",
+      })
     })
 
     if (!response.ok) {
