@@ -525,10 +525,25 @@ app.event('app_mention', async ({ event, client, say }) => {
 
     const result = await response.json()
     let messages: string[] = []
+    let debugMessages: string[] = []
 
     if (result.isError) {
       messages.push(`Error: ${result.error || 'An unknown error occurred'}`)
     } else {
+      if (result.assistantConclusion) {
+        let formattedConclusion = result.assistantConclusion
+          .replace(/\*\*(.*?)\*\*/g, '*$1*')
+          .replace(/<<.*?>>/g, '')
+          .replace(/<!-- .*? -->/g, '')
+          .replace(/<.*?>/g, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
+
+        if (formattedConclusion) {
+          messages.push(formattedConclusion)
+        }
+      }
+
       if (result.responses && Array.isArray(result.responses)) {
         for (const resp of result.responses) {
           if (resp.assistant) {
@@ -541,27 +556,13 @@ app.event('app_mention', async ({ event, client, say }) => {
               .trim()
 
             if (formattedResponse) {
-              messages.push(formattedResponse)
+              debugMessages.push(formattedResponse)
             }
           }
         }
       }
 
-      if (result.assistantConclusion) {
-        let formattedConclusion = result.assistantConclusion
-          .replace(/\*\*(.*?)\*\*/g, '*$1*')
-          .replace(/<<.*?>>/g, '')
-          .replace(/<!-- .*? -->/g, '')
-          .replace(/<.*?>/g, '')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim()
-
-        if (formattedConclusion) {
-          messages.push('\n*Conclusion:*\n' + formattedConclusion)
-        }
-      }
-
-      if (messages.length === 0) {
+      if (messages.length === 0 && debugMessages.length === 0) {
         messages.push('Error: No response received from Triple Whale')
       }
     }
@@ -575,10 +576,13 @@ app.event('app_mention', async ({ event, client, say }) => {
     const MAX_MESSAGE_LENGTH = 3500
     const messageChunks = []
 
-    const fullMessage = messages
-      .join('\n\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
+    let fullMessage = messages.join('\n\n').trim()
+
+    if (debugMessages.length > 0) {
+      fullMessage += '\n\n*Debug Information:*\n' + debugMessages.join('\n\n')
+    }
+
+    fullMessage = fullMessage.replace(/\n{3,}/g, '\n\n').trim()
 
     for (let i = 0; i < fullMessage.length; i += MAX_MESSAGE_LENGTH) {
       messageChunks.push(fullMessage.slice(i, i + MAX_MESSAGE_LENGTH))
