@@ -522,12 +522,26 @@ app.event('app_mention', async ({ event, client, say }) => {
     }
 
     const result = await response.json()
-    let message: string
+    let messages: string[] = []
 
     if (result.isError) {
-      message = `Error: ${result.error || 'An unknown error occurred'}`
+      messages.push(`Error: ${result.error || 'An unknown error occurred'}`)
     } else {
-      message = result.assistant
+      if (result.responses && Array.isArray(result.responses)) {
+        for (const resp of result.responses) {
+          if (resp.assistant) {
+            messages.push(resp.assistant)
+          }
+        }
+      }
+
+      if (result.assistantConclusion) {
+        messages.push('\n*Conclusion:*\n' + result.assistantConclusion)
+      }
+
+      if (messages.length === 0) {
+        messages.push('Error: No response received from Triple Whale')
+      }
     }
 
     await client.chat.update({
@@ -539,8 +553,10 @@ app.event('app_mention', async ({ event, client, say }) => {
     const MAX_MESSAGE_LENGTH = 3500
     const messageChunks = []
 
-    for (let i = 0; i < message.length; i += MAX_MESSAGE_LENGTH) {
-      messageChunks.push(message.slice(i, i + MAX_MESSAGE_LENGTH))
+    // Join all messages with newlines and then chunk
+    const fullMessage = messages.join('\n\n')
+    for (let i = 0; i < fullMessage.length; i += MAX_MESSAGE_LENGTH) {
+      messageChunks.push(fullMessage.slice(i, i + MAX_MESSAGE_LENGTH))
     }
 
     for (const chunk of messageChunks) {
