@@ -5,6 +5,50 @@ import { URLSearchParams } from 'url'
 import db from '@lighthouse/database'
 import { tripleWhaleAccounts, workspaceConnections, slackWorkspaces } from '@lighthouse/database/src/schema'
 
+function formatMathExpressions(text: string): string {
+  return text.replace(/\\\((.*?)\\\)/g, (_, expression) => {
+    try {
+      const cleanExpression = expression.replace(/,/g, '').trim()
+      const result = new Function(`return ${cleanExpression}`)()
+      return result.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
+    } catch (error) {
+      console.error('Error evaluating math expression:', error)
+      return expression
+    }
+  })
+}
+
+function formatCurrency(text: string): string {
+  return text.replace(/\$(\d{1,3}(,\d{3})*(\.\d{2})?)/g, (match) => {
+    try {
+      const value = parseFloat(match.replace(/[$,]/g, ''))
+      return value.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      })
+    } catch (error) {
+      return match
+    }
+  })
+}
+
+function formatMessage(text: string): string {
+  let formatted = text
+    .replace(/\*\*(.*?)\*\*/g, '*$1*')
+    .replace(/<<.*?>>/g, '')
+    .replace(/<!-- .*? -->/g, '')
+    .replace(/<.*?>/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  formatted = formatMathExpressions(formatted)
+  formatted = formatCurrency(formatted)
+  return formatted
+}
+
 const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET!,
   clientId: process.env.SLACK_CLIENT_ID!,
@@ -531,14 +575,7 @@ app.event('app_mention', async ({ event, client, say }) => {
       messages.push(`Error: ${result.error || 'An unknown error occurred'}`)
     } else {
       if (result.assistantConclusion) {
-        let formattedConclusion = result.assistantConclusion
-          .replace(/\*\*(.*?)\*\*/g, '*$1*')
-          .replace(/<<.*?>>/g, '')
-          .replace(/<!-- .*? -->/g, '')
-          .replace(/<.*?>/g, '')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim()
-
+        let formattedConclusion = formatMessage(result.assistantConclusion)
         if (formattedConclusion) {
           messages.push(formattedConclusion)
         }
@@ -547,14 +584,7 @@ app.event('app_mention', async ({ event, client, say }) => {
       if (result.responses && Array.isArray(result.responses)) {
         for (const resp of result.responses) {
           if (resp.assistant) {
-            let formattedResponse = resp.assistant
-              .replace(/\*\*(.*?)\*\*/g, '*$1*')
-              .replace(/<<.*?>>/g, '')
-              .replace(/<!-- .*? -->/g, '')
-              .replace(/<.*?>/g, '')
-              .replace(/\n{3,}/g, '\n\n')
-              .trim()
-
+            let formattedResponse = formatMessage(resp.assistant)
             if (formattedResponse) {
               debugMessages.push(formattedResponse)
             }
