@@ -1,10 +1,10 @@
 {
-  "name": "@lighthouse/triplewhale",
+  "name": "@sabi/triplewhale",
   "version": "0.0.1",
   "private": true,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
-    "@lighthouse/database": "workspace:*"
+    "@sabi/database": "workspace:*"
   }
 }

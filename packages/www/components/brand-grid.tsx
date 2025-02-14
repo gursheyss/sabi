@@ -7,7 +7,7 @@ import { BrandCard } from "@/components/brand-card";
 import { AddBrandModal } from "@/components/add-brand-modal";
 import { createBrand } from "@/app/_actions/brands";
 import { toast } from "sonner";
-import type { Brand as DBBrand } from "@lighthouse/database/src/schema";
+import type { Brand as DBBrand } from "@sabi/database/src/schema";
 
 interface BrandGridProps {
   initialBrands: DBBrand[];

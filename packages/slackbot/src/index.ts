@@ -2,8 +2,8 @@ import { App } from '@slack/bolt'
 import { TripleWhaleClient } from './lib/triplewhale'
 import { eq, and, ne } from 'drizzle-orm'
 import { URLSearchParams } from 'url'
-import db from '@lighthouse/database'
-import { workspaceBrands, slackWorkspaces, brands, user } from '@lighthouse/database/src/schema'
+import db from '@sabi/database'
+import { workspaceBrands, slackWorkspaces, brands, user } from '@sabi/database/src/schema'
 
 function formatMathExpressions(text: string): string {
   return text.replace(/\\\((.*?)\\\)/g, (_, expression) => {

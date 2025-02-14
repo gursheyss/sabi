@@ -1,5 +1,5 @@
 {
-  "name": "lighthouse",
+  "name": "sabi",
   "type": "module",
   "workspaces": [
     "packages/*"

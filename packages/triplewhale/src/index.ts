@@ -1,4 +1,4 @@
-import { getBrand, updateBrandTokens } from "@lighthouse/database/src/queries/triplewhale";
+import { getBrand, updateBrandTokens } from "@sabi/database/src/queries/triplewhale";
 
 interface TokenResponse {
   access_token: string

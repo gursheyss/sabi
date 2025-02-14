@@ -2,12 +2,12 @@
 
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import db from "@lighthouse/database";
-import { brands } from "@lighthouse/database/src/schema";
+import db from "@sabi/database";
+import { brands } from "@sabi/database/src/schema";
 import { eq, and, ne } from "drizzle-orm";
-import { slackWorkspaces } from "@lighthouse/database/src/schema";
-import { workspaceBrands } from "@lighthouse/database/src/schema";
-import { TripleWhaleClient } from "@lighthouse/triplewhale";
+import { slackWorkspaces } from "@sabi/database/src/schema";
+import { workspaceBrands } from "@sabi/database/src/schema";
+import { TripleWhaleClient } from "@sabi/triplewhale";
 
 export async function getBrands() {
   const session = await auth.api.getSession({
@@ -53,7 +53,7 @@ export async function createBrand(data: { name: string; website: string }) {
     throw new Error("Please connect to Slack before creating a brand");
   }
 
-  const accountId = `${session.user.email.split('@')[0]}_${data.name}_lighthouse`;
+  const accountId = `${session.user.email.split('@')[0]}_${data.name}_sabi`;
 
   console.log('accountId', accountId);
 

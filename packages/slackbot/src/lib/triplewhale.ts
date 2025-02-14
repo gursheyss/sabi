@@ -1,5 +1,5 @@
-import db from '@lighthouse/database'
-import { brands } from '@lighthouse/database/src/schema'
+import db from '@sabi/database'
+import { brands } from '@sabi/database/src/schema'
 import { eq } from 'drizzle-orm'
 
 interface TokenResponse {

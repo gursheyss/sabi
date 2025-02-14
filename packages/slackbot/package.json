@@ -1,5 +1,5 @@
 {
-  "name": "@lighthouse/slackbot",
+  "name": "@sabi/slackbot",
   "version": "0.0.1",
   "type": "module",
   "scripts": {
@@ -8,8 +8,8 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "@lighthouse/database": "workspace:*",
-    "@lighthouse/triplewhale": "workspace:*",
+    "@sabi/database": "workspace:*",
+    "@sabi/triplewhale": "workspace:*",
     "@slack/bolt": "^4.2.0",
     "@slack/oauth": "^3.0.2",
     "@slack/web-api": "^7.8.0",
