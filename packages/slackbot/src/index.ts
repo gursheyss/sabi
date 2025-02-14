@@ -87,6 +87,14 @@ const app = new App({
             return
           }
 
+          if (!state) {
+            res.writeHead(400)
+            res.end('State parameter is required')
+            return
+          }
+
+          const brandId = state
+
           const tokenResponse = await fetch('https://api.triplewhale.com/api/v2/auth/oauth2/token', {
             method: 'POST',
             headers: {
@@ -110,7 +118,16 @@ const app = new App({
 
           const tokens = await tokenResponse.json()
 
-          // Store tokens in session or pass them back to the client
+          await db.update(brands)
+            .set({
+              tripleWhaleAccessToken: tokens.access_token,
+              tripleWhaleRefreshToken: tokens.refresh_token,
+              tripleWhaleAccessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+              tripleWhaleRefreshTokenExpiresAt: new Date(Date.now() + tokens.refresh_token_expires_in * 1000),
+              updatedAt: new Date()
+            })
+            .where(eq(brands.id, brandId))
+
           res.writeHead(200, { 'Content-Type': 'text/html' })
           res.end(`
             <html>
@@ -119,7 +136,7 @@ const app = new App({
                 <p>You can close this window and return to the app.</p>
                 <script>
                   if (window.opener) {
-                    window.opener.postMessage({ type: 'TRIPLE_WHALE_AUTH_SUCCESS', tokens: ${JSON.stringify(tokens)} }, '*');
+                    window.opener.postMessage({ type: 'TRIPLE_WHALE_AUTH_SUCCESS' }, '*');
                   }
                   setTimeout(() => window.close(), 1000);
                 </script>
@@ -436,52 +453,52 @@ const app = new App({
 //   }
 // })
 
-app.command('/set-default-account', async ({ command, ack, respond }) => {
-  await ack()
+// app.command('/set-default-account', async ({ command, ack, respond }) => {
+//   await ack()
 
-  try {
-    const accountNumber = parseInt(command.text)
-    if (isNaN(accountNumber)) {
-      await respond({
-        text: 'Please provide a valid account number. Use `/manage-connections` to see the list of accounts.'
-      })
-      return
-    }
+//   try {
+//     const accountNumber = parseInt(command.text)
+//     if (isNaN(accountNumber)) {
+//       await respond({
+//         text: 'Please provide a valid account number. Use `/manage-connections` to see the list of accounts.'
+//       })
+//       return
+//     }
 
-    const connections = await db.query.workspaceBrands.findMany({
-      where: eq(workspaceBrands.workspaceId, command.team_id)
-    })
+//     const connections = await db.query.workspaceBrands.findMany({
+//       where: eq(workspaceBrands.workspaceId, command.team_id)
+//     })
 
-    if (accountNumber < 1 || accountNumber > connections.length) {
-      await respond({
-        text: 'Invalid account number. Use `/manage-connections` to see the list of accounts.'
-      })
-      return
-    }
+//     if (accountNumber < 1 || accountNumber > connections.length) {
+//       await respond({
+//         text: 'Invalid account number. Use `/manage-connections` to see the list of accounts.'
+//       })
+//       return
+//     }
 
-    const selectedConnection = connections[accountNumber - 1]
+//     const selectedConnection = connections[accountNumber - 1]
 
-    await db.update(workspaceBrands)
-      .set({ isDefault: 'false' })
-      .where(eq(workspaceBrands.workspaceId, command.team_id))
+//     await db.update(workspaceBrands)
+//       .set({ isDefault: 'false' })
+//       .where(eq(workspaceBrands.workspaceId, command.team_id))
 
-    await db.update(workspaceBrands)
-      .set({ isDefault: 'true' })
-      .where(and(
-        eq(workspaceBrands.workspaceId, command.team_id),
-        eq(workspaceBrands.brandId, selectedConnection.brandId)
-      ))
+//     await db.update(workspaceBrands)
+//       .set({ isDefault: 'true' })
+//       .where(and(
+//         eq(workspaceBrands.workspaceId, command.team_id),
+//         eq(workspaceBrands.brandId, selectedConnection.brandId)
+//       ))
 
-    await respond({
-      text: 'Default account updated successfully.'
-    })
-  } catch (error) {
-    console.error('Error setting default account:', error)
-    await respond({
-      text: 'Sorry, something went wrong. Please try again.'
-    })
-  }
-})
+//     await respond({
+//       text: 'Default account updated successfully.'
+//     })
+//   } catch (error) {
+//     console.error('Error setting default account:', error)
+//     await respond({
+//       text: 'Sorry, something went wrong. Please try again.'
+//     })
+//   }
+// })
 
 app.command('/select-brand', async ({ command, ack, respond }) => {
   await ack();
