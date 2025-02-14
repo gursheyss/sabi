@@ -54,7 +54,6 @@ export async function createBrand(data: { name: string; website: string }) {
   const accountId = `${session.user.email.split('@')[0]}_${data.name}_lighthouse`;
 
   try {
-    // Register account with Triple Whale
     const registrationResponse = await fetch('https://api.triplewhale.com/api/v2/orcabase/dev/register-account', {
       method: 'POST',
       headers: {
@@ -85,15 +84,18 @@ export async function createBrand(data: { name: string; website: string }) {
       account_id: accountId
     });
 
-    const authResponse = await fetch(`https://api.triplewhale.com/api/v2/orcabase/dev/auth?${params.toString()}`);
+    await db.insert(brands).values({
+      id: accountId,
+      name: data.name,
+      website: data.website,
+      userId: session.user.id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
 
-    if (!authResponse.ok) {
-      const error = await authResponse.text();
-      console.error('Failed to get auth url', error);
-      throw new Error('Failed to get auth url');
-    }
-
-    return await authResponse.json();
+    return {
+      authUrl: `https://api.triplewhale.com/api/v2/orcabase/dev/auth?${params.toString()}`
+    };
 
   } catch (error) {
     console.error('Error in Triple Whale setup:', error);

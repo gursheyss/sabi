@@ -1,4 +1,4 @@
-import { getBrands } from "@/app/_actions/brands";
+import { getBrands, getConnectedSlackWorkspace } from "@/app/_actions/brands";
 import { BrandGrid } from "@/components/brand-grid";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -13,11 +13,14 @@ export default async function MyBrandsPage() {
     redirect("/login");
   }
 
-  const brands = await getBrands();
+  const [brands, slackWorkspace] = await Promise.all([
+    getBrands(),
+    getConnectedSlackWorkspace(),
+  ]);
 
   return (
     <div className="p-4 pt-0">
-      <BrandGrid initialBrands={brands} />
+      <BrandGrid initialBrands={brands} hasSlackWorkspace={!!slackWorkspace} />
     </div>
   );
 }

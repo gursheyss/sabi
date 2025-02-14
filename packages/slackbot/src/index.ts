@@ -87,9 +87,6 @@ const app = new App({
             return
           }
 
-          const teamId = state?.replace('slack_team_', '')
-          const accountId = `lilosocial_${teamId}`
-
           const tokenResponse = await fetch('https://api.triplewhale.com/api/v2/auth/oauth2/token', {
             method: 'POST',
             headers: {
@@ -113,42 +110,18 @@ const app = new App({
 
           const tokens = await tokenResponse.json()
 
-          if (!teamId) {
-            throw new Error('Missing team ID')
-          }
-
-          const now = new Date()
-          const brandId = `brand_${Date.now()}`
-
-          await db.insert(brands).values({
-            id: brandId,
-            name: `Triple Whale Account - ${teamId}`,
-            website: 'https://app.triplewhale.com',
-            userId: 'system',
-            tripleWhaleAccessToken: tokens.access_token,
-            tripleWhaleRefreshToken: tokens.refresh_token,
-            tripleWhaleAccessTokenExpiresAt: new Date(now.getTime() + tokens.expires_in * 1000),
-            tripleWhaleRefreshTokenExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-            createdAt: now,
-            updatedAt: now
-          })
-
-          await db.insert(workspaceBrands).values({
-            workspaceId: teamId,
-            brandId: brandId,
-            isDefault: 'true',
-            createdAt: now,
-            updatedAt: now
-          })
-
+          // Store tokens in session or pass them back to the client
           res.writeHead(200, { 'Content-Type': 'text/html' })
           res.end(`
             <html>
               <body>
                 <h1>Successfully connected!</h1>
-                <p>You can close this window and return to Slack. All members in your workspace can now use the app.</p>
+                <p>You can close this window and return to the app.</p>
                 <script>
-                  setTimeout(() => window.close(), 3000);
+                  if (window.opener) {
+                    window.opener.postMessage({ type: 'TRIPLE_WHALE_AUTH_SUCCESS', tokens: ${JSON.stringify(tokens)} }, '*');
+                  }
+                  setTimeout(() => window.close(), 1000);
                 </script>
               </body>
             </html>
@@ -156,7 +129,7 @@ const app = new App({
         } catch (error) {
           console.error('Error in OAuth callback:', error)
           res.writeHead(500)
-          res.end('Installation failed')
+          res.end('Authorization failed')
         }
       }
     }

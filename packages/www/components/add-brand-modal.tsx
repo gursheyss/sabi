@@ -44,7 +44,7 @@ const defaultValues: Partial<BrandFormValues> = {
 interface AddBrandModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (values: BrandFormValues) => Promise<void>;
+  onSave: (values: BrandFormValues) => Promise<{ authUrl: string }>;
 }
 
 export function AddBrandModal({ isOpen, onClose, onSave }: AddBrandModalProps) {
@@ -57,10 +57,26 @@ export function AddBrandModal({ isOpen, onClose, onSave }: AddBrandModalProps) {
   async function onSubmit(data: BrandFormValues) {
     setIsLoading(true);
     try {
-      await onSave(data);
+      const response = await onSave(data);
+      console.log("Triple Whale response:", response);
+
+      if (!response?.authUrl) {
+        throw new Error("No authorization URL received");
+      }
+
+      const authWindow = window.open(response.authUrl, "_blank");
+      if (!authWindow) {
+        toast.error(
+          "Please enable popups to complete Triple Whale authorization"
+        );
+        return;
+      }
+
       form.reset();
       onClose();
-      toast.success("Brand added successfully");
+      toast.success(
+        "Please complete the Triple Whale authorization in the new tab"
+      );
     } catch (error) {
       console.error("Error in form submission:", error);
       toast.error("Failed to add brand. Please try again.");

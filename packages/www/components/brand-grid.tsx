@@ -5,50 +5,40 @@ import { Button } from "@/components/ui/button";
 import { Plus, Slack } from "lucide-react";
 import { BrandCard } from "@/components/brand-card";
 import { AddBrandModal } from "@/components/add-brand-modal";
-import { createBrand, getConnectedSlackWorkspace } from "@/app/_actions/brands";
+import { createBrand } from "@/app/_actions/brands";
 import { toast } from "sonner";
 import type { Brand as DBBrand } from "@lighthouse/database/src/schema";
+
 interface BrandGridProps {
   initialBrands: DBBrand[];
+  hasSlackWorkspace: boolean;
 }
 
-export function BrandGrid({ initialBrands }: BrandGridProps) {
-  const [brands, setBrands] = React.useState<DBBrand[]>(initialBrands);
+export function BrandGrid({
+  initialBrands,
+  hasSlackWorkspace,
+}: BrandGridProps) {
+  const [brands] = React.useState<DBBrand[]>(initialBrands);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [hasSlackWorkspace, setHasSlackWorkspace] = React.useState<
-    boolean | null
-  >(null);
-
-  React.useEffect(() => {
-    async function checkSlackConnection() {
-      try {
-        const workspace = await getConnectedSlackWorkspace();
-        setHasSlackWorkspace(!!workspace);
-      } catch (error) {
-        console.error("Error checking Slack connection:", error);
-        setHasSlackWorkspace(false);
-      }
-    }
-    checkSlackConnection();
-  }, []);
 
   const handleSave = React.useCallback(
     async (data: { name: string; website: string }) => {
       if (!hasSlackWorkspace) {
         toast.error("Please connect to Slack before creating a brand");
-        return;
+        throw new Error("Slack workspace not connected");
       }
 
       try {
         const result = await createBrand(data);
-        setBrands((prev) => [...prev, result.brand]);
-        window.open(result.integrationsUrl, "_blank");
+        window.open(result.authUrl, "_blank");
         toast.success(
-          "Brand created successfully! Please complete the integrations setup in the new tab."
+          "Please complete the Triple Whale authorization in the new tab"
         );
+        return result;
       } catch (error) {
         console.error("Error creating brand:", error);
         toast.error("Failed to create brand. Please try again.");
+        throw error;
       }
     },
     [hasSlackWorkspace]
@@ -56,8 +46,7 @@ export function BrandGrid({ initialBrands }: BrandGridProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Brands</h1>
+      <div className="flex items-center justify-end">
         {!hasSlackWorkspace ? (
           <Button asChild>
             <a href="https://lighthouse-slackbot.up.railway.app/slack/install">
