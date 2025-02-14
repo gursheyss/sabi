@@ -30,7 +30,6 @@ export function BrandGrid({
 
       try {
         const result = await createBrand(data);
-        window.open(result.authUrl, "_blank");
         toast.success(
           "Please complete the Triple Whale authorization in the new tab"
         );
