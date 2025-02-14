@@ -1,6 +1,6 @@
 import { App } from '@slack/bolt'
 import { TripleWhaleClient } from './lib/triplewhale'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, ne } from 'drizzle-orm'
 import { URLSearchParams } from 'url'
 import db from '@lighthouse/database'
 import { workspaceBrands, slackWorkspaces, brands, user } from '@lighthouse/database/src/schema'
@@ -483,6 +483,136 @@ app.command('/set-default-account', async ({ command, ack, respond }) => {
   }
 })
 
+app.command('/select-brand', async ({ command, ack, respond }) => {
+  await ack();
+
+  try {
+    const workspace = await db.query.slackWorkspaces.findFirst({
+      where: eq(slackWorkspaces.id, command.team_id),
+    });
+
+    if (!workspace) {
+      await respond('Workspace not found. Please reinstall the app.');
+      return;
+    }
+
+    const userBrands = await db.query.brands.findMany({
+      where: eq(brands.userId, workspace.userId!),
+    });
+
+    if (userBrands.length === 0) {
+      await respond('No brands found. Please connect some brands first.');
+      return;
+    }
+
+    const blocks = [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Select a brand to use for queries:*'
+        }
+      },
+      {
+        type: 'actions',
+        block_id: 'brand_selection',
+        elements: [
+          {
+            type: 'static_select',
+            action_id: 'select_brand',
+            placeholder: {
+              type: 'plain_text',
+              text: 'Select a brand'
+            },
+            options: userBrands.map(brand => ({
+              text: {
+                type: 'plain_text',
+                text: brand.name
+              },
+              value: brand.id
+            }))
+          }
+        ]
+      }
+    ];
+
+    await respond({
+      blocks,
+      response_type: 'ephemeral'
+    });
+  } catch (error) {
+    console.error('Error in select-brand command:', error);
+    await respond('An error occurred while fetching brands.');
+  }
+});
+
+app.action('select_brand', async ({ ack, body, respond }) => {
+  await ack();
+
+  type BlockActionBody = {
+    actions: Array<{ selected_option?: { value: string } }>;
+    team?: { id: string };
+  };
+
+  const actionBody = body as BlockActionBody;
+  const action = actionBody.actions[0];
+
+  if (!action?.selected_option?.value) {
+    await respond('Invalid selection');
+    return;
+  }
+
+  const selectedBrandId = action.selected_option.value;
+  const teamId = actionBody.team?.id;
+
+  if (!teamId) {
+    await respond('Team ID not found');
+    return;
+  }
+
+  try {
+    const workspace = await db.query.slackWorkspaces.findFirst({
+      where: eq(slackWorkspaces.id, teamId),
+    });
+
+    if (!workspace) {
+      await respond('Workspace not found');
+      return;
+    }
+
+    await db.insert(workspaceBrands).values({
+      workspaceId: teamId,
+      brandId: selectedBrandId,
+      isDefault: 'true',
+      updatedAt: new Date()
+    }).onConflictDoUpdate({
+      target: [workspaceBrands.workspaceId, workspaceBrands.brandId],
+      set: {
+        isDefault: 'true',
+        updatedAt: new Date()
+      }
+    });
+
+    await db.update(workspaceBrands)
+      .set({ isDefault: 'false' })
+      .where(
+        and(
+          eq(workspaceBrands.workspaceId, teamId),
+          ne(workspaceBrands.brandId, selectedBrandId)
+        )
+      );
+
+    const brand = await db.query.brands.findFirst({
+      where: eq(brands.id, selectedBrandId)
+    });
+
+    await respond(`Successfully set ${brand?.name} as the default brand for queries!`);
+  } catch (error) {
+    console.error('Error setting default brand:', error);
+    await respond('An error occurred while setting the default brand.');
+  }
+});
+
 app.event('app_mention', async ({ event, client, say }) => {
   const messageText = event.text.replace(/<@[^>]+>/, '').trim()
   let loadingMessage: { ts: string } | undefined
@@ -492,21 +622,18 @@ app.event('app_mention', async ({ event, client, say }) => {
       await say({
         text: `Hey <@${event.user}>! 👋 Use these commands to interact with Triple Whale:
 • \`/connect\` - Connect a new Triple Whale account
-• \`/manage-connections\` - List and manage your Triple Whale accounts
-• \`/set-default-account\` - Set which account to use by default
-• Or just ask me questions about your data like "How much did we spend on meta ads?"`,
-        thread_ts: event.thread_ts || event.ts
+• \`/select-brand\` - Choose which brand to use for queries
+• \`/manage-connections\` - List and manage your Triple Whale accounts`
       })
       return
     }
 
     loadingMessage = await say({
-      text: "🔄 Processing your request... I'll have your answer in just a moment!",
+      text: 'Querying Triple Whale...',
       thread_ts: event.thread_ts || event.ts
     }) as { ts: string }
 
-    const teamInfo = await client.team.info()
-    const teamId = teamInfo.team?.id
+    const teamId = event.team
 
     if (!teamId) {
       throw new Error('Could not determine team ID')
@@ -529,7 +656,7 @@ app.event('app_mention', async ({ event, client, say }) => {
       await client.chat.update({
         channel: event.channel,
         ts: loadingMessage.ts!,
-        text: 'No default Triple Whale account set. Use `/connect` to connect an account and `/set-default-account` to set it as default.'
+        text: 'No default brand selected. Please use `/select-brand` to choose a brand first.'
       })
       return
     }
