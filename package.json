@@ -7,13 +7,14 @@
   "scripts": {
     "build": "bun install && bun run build:www",
     "build:www": "bun run --cwd packages/www build",
-    "dev": "bun run --cwd packages/www dev",
     "start:www": "bun run --cwd packages/www start",
+    "dev": "bun run --cwd packages/www dev",
     "start:slackbot": "bun run --cwd packages/slackbot src/index.ts",
     "db:generate": "bun run --cwd packages/database db:generate",
     "db:migrate": "bun run --cwd packages/database db:migrate"
   },
   "devDependencies": {
+    "prettier": "^3.2.5",
     "@types/bun": "latest",
     "typescript": "^5.0.0"
   },

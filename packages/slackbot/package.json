@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@lighthouse/database": "workspace:*",
+    "@lighthouse/triplewhale": "workspace:*",
     "@slack/bolt": "^4.2.0",
     "@slack/oauth": "^3.0.2",
     "@slack/web-api": "^7.8.0",

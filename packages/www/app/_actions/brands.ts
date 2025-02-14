@@ -6,6 +6,7 @@ import db from "@lighthouse/database";
 import { brands } from "@lighthouse/database/src/schema";
 import { eq } from "drizzle-orm";
 import { slackWorkspaces } from "@lighthouse/database/src/schema";
+import { TripleWhaleClient } from "@lighthouse/triplewhale";
 
 export async function getBrands() {
   const session = await auth.api.getSession({
@@ -53,6 +54,8 @@ export async function createBrand(data: { name: string; website: string }) {
 
   const accountId = `${session.user.email.split('@')[0]}_${data.name}_lighthouse`;
 
+  console.log('accountId', accountId);
+
   try {
     const registrationResponse = await fetch('https://api.triplewhale.com/api/v2/orcabase/dev/register-account', {
       method: 'POST',
@@ -64,7 +67,7 @@ export async function createBrand(data: { name: string; website: string }) {
       body: JSON.stringify({
         appId: process.env.TRIPLEWHALE_CLIENT_ID!,
         accountId: accountId,
-        accountName: data.name,
+        accountName: accountId,
         timezone: 'America/New_York',
         currency: 'USD'
       })
@@ -81,7 +84,8 @@ export async function createBrand(data: { name: string; website: string }) {
       redirect_uri: process.env.REDIRECT_URI!,
       response_type: 'code',
       scope: 'offline_access offline',
-      account_id: accountId
+      account_id: accountId,
+      state: accountId
     });
 
     await db.insert(brands).values({
@@ -101,4 +105,24 @@ export async function createBrand(data: { name: string; website: string }) {
     console.error('Error in Triple Whale setup:', error);
     throw error;
   }
+}
+
+export async function getIntegrationsUrl(brandId: string) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const brand = await db.query.brands.findFirst({
+    where: eq(brands.id, brandId),
+  });
+
+  if (!brand || brand.userId !== session.user.id) {
+    throw new Error("Brand not found");
+  }
+
+  return TripleWhaleClient.getIntegrationsUrl(brandId);
 } 
