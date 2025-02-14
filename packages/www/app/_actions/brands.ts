@@ -4,8 +4,9 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import db from "@lighthouse/database";
 import { brands } from "@lighthouse/database/src/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { slackWorkspaces } from "@lighthouse/database/src/schema";
+import { workspaceBrands } from "@lighthouse/database/src/schema";
 import { TripleWhaleClient } from "@lighthouse/triplewhale";
 
 export async function getBrands() {
@@ -97,6 +98,23 @@ export async function createBrand(data: { name: string; website: string }) {
       updatedAt: new Date()
     });
 
+    await db.insert(workspaceBrands).values({
+      workspaceId: workspace.id,
+      brandId: accountId,
+      isDefault: 'true',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await db.update(workspaceBrands)
+      .set({ isDefault: 'false' })
+      .where(
+        and(
+          eq(workspaceBrands.workspaceId, workspace.id),
+          ne(workspaceBrands.brandId, accountId)
+        )
+      );
+
     return {
       authUrl: `https://api.triplewhale.com/api/v2/orcabase/dev/auth?${params.toString()}`
     };
@@ -125,4 +143,35 @@ export async function getIntegrationsUrl(brandId: string) {
   }
 
   return TripleWhaleClient.getIntegrationsUrl(brandId);
+}
+
+export async function refreshBrandConnection(brandId: string) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const brand = await db.query.brands.findFirst({
+    where: eq(brands.id, brandId),
+  });
+
+  if (!brand || brand.userId !== session.user.id) {
+    throw new Error("Brand not found");
+  }
+
+  const params = new URLSearchParams({
+    client_id: process.env.TRIPLEWHALE_CLIENT_ID!,
+    redirect_uri: process.env.REDIRECT_URI!,
+    response_type: 'code',
+    scope: 'offline_access offline',
+    account_id: brandId,
+    state: brandId
+  });
+
+  return {
+    authUrl: `https://api.triplewhale.com/api/v2/orcabase/dev/auth?${params.toString()}`
+  };
 } 

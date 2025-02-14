@@ -9,8 +9,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getIntegrationsUrl } from "@/app/_actions/brands";
+import { getIntegrationsUrl, refreshBrandConnection } from "@/app/_actions/brands";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
 
 interface Brand {
   id: string;
@@ -34,6 +35,19 @@ export function BrandCard({ brand }: BrandCardProps) {
     }
   }, [brand.id]);
 
+  const handleRefreshConnection = React.useCallback(async () => {
+    try {
+      const result = await refreshBrandConnection(brand.id);
+      window.open(result.authUrl, "_blank");
+      toast.success(
+        "Please complete the Triple Whale authorization in the new tab"
+      );
+    } catch (error) {
+      console.error("Error refreshing connection:", error);
+      toast.error("Failed to refresh connection. Please try again.");
+    }
+  }, [brand.id]);
+
   return (
     <Card className="flex flex-col">
       <CardHeader>
@@ -49,7 +63,7 @@ export function BrandCard({ brand }: BrandCardProps) {
           {brand.website}
         </a>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col gap-2">
         <Button
           className="w-full"
           variant={brand.connected ? "secondary" : "default"}
@@ -57,6 +71,14 @@ export function BrandCard({ brand }: BrandCardProps) {
         >
           {brand.connected ? "Manage Connections" : "Connect Accounts"}
         </Button>
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={handleRefreshConnection}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh Connection
+          </Button>
       </CardFooter>
     </Card>
   );

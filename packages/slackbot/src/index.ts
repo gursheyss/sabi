@@ -68,7 +68,9 @@ const app = new App({
     'mpim:write',
     'team:read',
     'users:read',
-    'users:read.email'
+    'users:read.email',
+    'views:write',
+    'commands'
   ],
   customRoutes: [
     {
@@ -520,7 +522,7 @@ app.command('/select-brand', async ({ command, ack, respond }) => {
     });
 
     if (!workspace) {
-      await respond('Workspace not found. Please reinstall the app.');
+      await respond({ text: 'Workspace not found. Please reinstall the app.', response_type: 'ephemeral' });
       return;
     }
 
@@ -529,48 +531,46 @@ app.command('/select-brand', async ({ command, ack, respond }) => {
     });
 
     if (userBrands.length === 0) {
-      await respond('No brands found. Please connect some brands first.');
+      await respond({ text: 'No brands found. Please connect some brands first.', response_type: 'ephemeral' });
       return;
     }
 
-    const blocks = [
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: '*Select a brand to use for queries:*'
-        }
-      },
-      {
-        type: 'actions',
-        block_id: 'brand_selection',
-        elements: [
-          {
-            type: 'static_select',
-            action_id: 'select_brand',
-            placeholder: {
-              type: 'plain_text',
-              text: 'Select a brand'
-            },
-            options: userBrands.map(brand => ({
-              text: {
-                type: 'plain_text',
-                text: brand.name
-              },
-              value: brand.id
-            }))
-          }
-        ]
-      }
-    ];
-
     await respond({
-      blocks,
-      response_type: 'ephemeral'
+      response_type: 'ephemeral',
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '*Select a brand to use for queries:*'
+          }
+        },
+        {
+          type: 'actions',
+          block_id: 'brand_selection',
+          elements: [
+            {
+              type: 'static_select',
+              action_id: 'select_brand',
+              placeholder: {
+                type: 'plain_text',
+                text: 'Select a brand'
+              },
+              options: userBrands.map(brand => ({
+                text: {
+                  type: 'plain_text',
+                  text: brand.name
+                },
+                value: brand.id
+              }))
+            }
+          ]
+        }
+      ]
     });
   } catch (error) {
     console.error('Error in select-brand command:', error);
-    await respond('An error occurred while fetching brands.');
+    await respond({ text: 'An error occurred while fetching brands.', response_type: 'ephemeral' });
   }
 });
 
@@ -657,7 +657,7 @@ app.event('app_mention', async ({ event, client, say }) => {
     }
 
     loadingMessage = await say({
-      text: 'Querying Triple Whale...',
+      text: '🔍 Searching for data...',
       thread_ts: event.thread_ts || event.ts
     }) as { ts: string }
 
