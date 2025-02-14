@@ -118,13 +118,24 @@ const app = new App({
 
           const tokens = await tokenResponse.json()
 
+          if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_in) {
+            console.error('Invalid token response:', tokens)
+            res.writeHead(400)
+            res.end('Invalid token response from Triple Whale')
+            return
+          }
+
+          const now = new Date()
+          const accessTokenExpiresAt = new Date(now.getTime() + (tokens.expires_in * 1000))
+          const refreshTokenExpiresAt = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000))
+
           await db.update(brands)
             .set({
               tripleWhaleAccessToken: tokens.access_token,
               tripleWhaleRefreshToken: tokens.refresh_token,
-              tripleWhaleAccessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-              tripleWhaleRefreshTokenExpiresAt: new Date(Date.now() + tokens.refresh_token_expires_in * 1000),
-              updatedAt: new Date()
+              tripleWhaleAccessTokenExpiresAt: accessTokenExpiresAt,
+              tripleWhaleRefreshTokenExpiresAt: refreshTokenExpiresAt,
+              updatedAt: now
             })
             .where(eq(brands.id, brandId))
 
