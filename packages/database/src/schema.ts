@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
+import type { InferSelectModel } from "drizzle-orm";
 import {
   text,
   timestamp,
@@ -68,13 +69,23 @@ export const slackWorkspaces = pgTable('slack_workspaces', {
   slackBotToken: text('slack_bot_token'),
   slackBotId: text('slack_bot_id'),
   slackBotUserId: text('slack_bot_user_id'),
+  userId: text('user_id').references(() => user.id),
   createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const tripleWhaleAccounts = pgTable('triple_whale_accounts', {
+export const slackWorkspacesRelations = relations(slackWorkspaces, ({ one }) => ({
+  user: one(user, {
+    fields: [slackWorkspaces.userId],
+    references: [user.id],
+  }),
+}));
+
+export const brands = pgTable('brands', {
   id: text('id').primaryKey(),
-  name: text('name'),
+  name: text('name').notNull(),
+  website: text('website').notNull(),
+  userId: text('user_id').notNull().references(() => user.id),
   tripleWhaleAccessToken: text('triple_whale_access_token'),
   tripleWhaleRefreshToken: text('triple_whale_refresh_token'),
   tripleWhaleAccessTokenExpiresAt: timestamp('triple_whale_access_token_expires_at'),
@@ -83,35 +94,7 @@ export const tripleWhaleAccounts = pgTable('triple_whale_accounts', {
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const tripleWhaleAccountsRelations = relations(tripleWhaleAccounts, ({ many }) => ({
-  brands: many(brands),
-}));
-
-export const workspaceConnections = pgTable('workspace_connections', {
-  slackWorkspaceId: text('slack_workspace_id').notNull().references(() => slackWorkspaces.id),
-  tripleWhaleAccountId: text('triple_whale_account_id').notNull().references(() => tripleWhaleAccounts.id),
-  isDefault: text('is_default').default('false'),
-  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
-}, (table) => ({
-  pk: primaryKey(table.slackWorkspaceId, table.tripleWhaleAccountId),
-}));
-
-export const brands = pgTable('brands', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  website: text('website').notNull(),
-  userId: text('user_id').notNull().references(() => user.id),
-  tripleWhaleAccountId: text('triple_whale_account_id').references(() => tripleWhaleAccounts.id),
-  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
-});
-
 export const brandsRelations = relations(brands, ({ one }) => ({
-  tripleWhaleAccount: one(tripleWhaleAccounts, {
-    fields: [brands.tripleWhaleAccountId],
-    references: [tripleWhaleAccounts.id],
-  }),
   user: one(user, {
     fields: [brands.userId],
     references: [user.id],
@@ -127,3 +110,11 @@ export const workspaceBrands = pgTable('workspace_brands', {
 }, (table) => ({
   pk: primaryKey(table.workspaceId, table.brandId),
 }));
+
+export type User = InferSelectModel<typeof user>;
+export type Session = InferSelectModel<typeof session>;
+export type Account = InferSelectModel<typeof account>;
+export type Verification = InferSelectModel<typeof verification>;
+export type SlackWorkspace = InferSelectModel<typeof slackWorkspaces>;
+export type Brand = InferSelectModel<typeof brands>;
+export type WorkspaceBrand = InferSelectModel<typeof workspaceBrands>;

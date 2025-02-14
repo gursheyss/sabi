@@ -1,5 +1,5 @@
 import db from '@lighthouse/database'
-import { tripleWhaleAccounts } from '@lighthouse/database/src/schema'
+import { brands } from '@lighthouse/database/src/schema'
 import { eq } from 'drizzle-orm'
 
 interface TokenResponse {
@@ -16,7 +16,7 @@ interface TokenErrorResponse {
 }
 
 export class TripleWhaleClient {
-  private static async refreshTokens(teamId: string, refreshToken: string): Promise<TokenResponse> {
+  private static async refreshTokens(brandId: string, refreshToken: string): Promise<TokenResponse> {
     const response = await fetch('https://api.triplewhale.com/api/v2/auth/oauth2/token', {
       method: 'POST',
       headers: {
@@ -46,7 +46,7 @@ export class TripleWhaleClient {
 
     // Update tokens in database
     const now = new Date();
-    await db.update(tripleWhaleAccounts)
+    await db.update(brands)
       .set({
         tripleWhaleAccessToken: tokens.access_token,
         tripleWhaleRefreshToken: tokens.refresh_token,
@@ -54,50 +54,49 @@ export class TripleWhaleClient {
         tripleWhaleRefreshTokenExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days
         updatedAt: now
       })
-      .where(eq(tripleWhaleAccounts.id, teamId));
+      .where(eq(brands.id, brandId));
 
     return tokens;
   }
 
-  static async getValidAccessToken(teamId: string): Promise<string> {
-    const workspace = await db.query.tripleWhaleAccounts.findFirst({
-      where: eq(tripleWhaleAccounts.id, teamId)
+  static async getValidAccessToken(brandId: string): Promise<string> {
+    const brand = await db.query.brands.findFirst({
+      where: eq(brands.id, brandId)
     });
 
-    if (!workspace) {
-      throw new Error('Workspace not found');
+    if (!brand) {
+      throw new Error('Brand not found');
     }
 
     const now = new Date();
 
     // Check if access token is expired or will expire in the next 5 minutes
-    if (!workspace.tripleWhaleAccessToken ||
-      !workspace.tripleWhaleAccessTokenExpiresAt ||
-      workspace.tripleWhaleAccessTokenExpiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
+    if (!brand.tripleWhaleAccessToken ||
+      !brand.tripleWhaleAccessTokenExpiresAt ||
+      brand.tripleWhaleAccessTokenExpiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
 
       // Check if refresh token is valid
-      if (!workspace.tripleWhaleRefreshToken ||
-        !workspace.tripleWhaleRefreshTokenExpiresAt ||
-        workspace.tripleWhaleRefreshTokenExpiresAt < now) {
+      if (!brand.tripleWhaleRefreshToken ||
+        !brand.tripleWhaleRefreshTokenExpiresAt ||
+        brand.tripleWhaleRefreshTokenExpiresAt < now) {
         throw new Error('Refresh token expired. User needs to reauthenticate.');
       }
 
       // Refresh the tokens
-      const tokens = await this.refreshTokens(teamId, workspace.tripleWhaleRefreshToken);
+      const tokens = await this.refreshTokens(brandId, brand.tripleWhaleRefreshToken);
       return tokens.access_token;
     }
 
-    return workspace.tripleWhaleAccessToken;
+    return brand.tripleWhaleAccessToken;
   }
 
-  static async getSignInToken(teamId: string): Promise<string> {
-    console.log('teamId', teamId)
-    const workspace = await db.query.tripleWhaleAccounts.findFirst({
-      where: eq(tripleWhaleAccounts.id, teamId)
+  static async getSignInToken(brandId: string): Promise<string> {
+    const brand = await db.query.brands.findFirst({
+      where: eq(brands.id, brandId)
     });
 
-    if (!workspace) {
-      throw new Error('Workspace not found');
+    if (!brand) {
+      throw new Error('Brand not found');
     }
 
     const response = await fetch('https://api.triplewhale.com/api/v2/orcabase/dev/sign-in-account', {
@@ -107,7 +106,7 @@ export class TripleWhaleClient {
         'x-api-key': process.env.ORCABASE_API_KEY!
       },
       body: JSON.stringify({
-        accountId: workspace.id,
+        accountId: brandId,
         appId: process.env.TRIPLEWHALE_CLIENT_ID!
       })
     });
@@ -120,22 +119,19 @@ export class TripleWhaleClient {
     return data.token;
   }
 
-  static async getIntegrationsUrl(teamId: string): Promise<string> {
-    console.log('teamId', teamId)
-    const workspace = await db.query.tripleWhaleAccounts.findFirst({
-      where: eq(tripleWhaleAccounts.id, teamId)
+  static async getIntegrationsUrl(brandId: string): Promise<string> {
+    const brand = await db.query.brands.findFirst({
+      where: eq(brands.id, brandId)
     });
 
-    console.log('workspace', workspace)
-
-    if (!workspace || !workspace.id) {
-      throw new Error('Workspace not found or not properly connected');
+    if (!brand) {
+      throw new Error('Brand not found');
     }
 
-    const signInToken = await this.getSignInToken(teamId);
+    const signInToken = await this.getSignInToken(brandId);
 
     const params = new URLSearchParams({
-      'account-id': workspace.id,
+      'account-id': brandId,
       'app-id': process.env.TRIPLEWHALE_CLIENT_ID!,
       'token': signInToken
     });

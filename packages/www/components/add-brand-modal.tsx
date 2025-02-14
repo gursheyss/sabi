@@ -4,6 +4,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -47,18 +48,24 @@ interface AddBrandModalProps {
 }
 
 export function AddBrandModal({ isOpen, onClose, onSave }: AddBrandModalProps) {
+  const [isLoading, setIsLoading] = React.useState(false);
   const form = useForm<BrandFormValues>({
     resolver: zodResolver(brandFormSchema),
     defaultValues,
   });
 
   async function onSubmit(data: BrandFormValues) {
+    setIsLoading(true);
     try {
       await onSave(data);
       form.reset();
       onClose();
+      toast.success("Brand added successfully");
     } catch (error) {
       console.error("Error in form submission:", error);
+      toast.error("Failed to add brand. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -104,10 +111,17 @@ export function AddBrandModal({ isOpen, onClose, onSave }: AddBrandModalProps) {
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isLoading}
+              >
                 Cancel
               </Button>
-              <Button type="submit">Add Brand</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Adding..." : "Add Brand"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

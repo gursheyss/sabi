@@ -3,7 +3,7 @@ import { TripleWhaleClient } from './lib/triplewhale'
 import { eq, and } from 'drizzle-orm'
 import { URLSearchParams } from 'url'
 import db from '@lighthouse/database'
-import { tripleWhaleAccounts, workspaceConnections, slackWorkspaces } from '@lighthouse/database/src/schema'
+import { workspaceBrands, slackWorkspaces, brands, user } from '@lighthouse/database/src/schema'
 
 function formatMathExpressions(text: string): string {
   return text.replace(/\\\((.*?)\\\)/g, (_, expression) => {
@@ -113,40 +113,33 @@ const app = new App({
 
           const tokens = await tokenResponse.json()
 
-          if (teamId) {
-            const now = new Date()
-            await db.insert(tripleWhaleAccounts).values({
-              id: accountId,
-              name: `Triple Whale Account - ${teamId}`,
-              tripleWhaleAccessToken: tokens.access_token,
-              tripleWhaleRefreshToken: tokens.refresh_token,
-              tripleWhaleAccessTokenExpiresAt: new Date(now.getTime() + tokens.expires_in * 1000),
-              tripleWhaleRefreshTokenExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days
-              updatedAt: now
-            }).onConflictDoUpdate({
-              target: [tripleWhaleAccounts.id],
-              set: {
-                tripleWhaleAccessToken: tokens.access_token,
-                tripleWhaleRefreshToken: tokens.refresh_token,
-                tripleWhaleAccessTokenExpiresAt: new Date(now.getTime() + tokens.expires_in * 1000),
-                tripleWhaleRefreshTokenExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-                updatedAt: now
-              }
-            })
-
-            await db.insert(workspaceConnections).values({
-              slackWorkspaceId: teamId,
-              tripleWhaleAccountId: accountId,
-              isDefault: 'true',
-              createdAt: now,
-              updatedAt: now
-            }).onConflictDoUpdate({
-              target: [workspaceConnections.slackWorkspaceId, workspaceConnections.tripleWhaleAccountId],
-              set: {
-                updatedAt: now
-              }
-            })
+          if (!teamId) {
+            throw new Error('Missing team ID')
           }
+
+          const now = new Date()
+          const brandId = `brand_${Date.now()}`
+
+          await db.insert(brands).values({
+            id: brandId,
+            name: `Triple Whale Account - ${teamId}`,
+            website: 'https://app.triplewhale.com',
+            userId: 'system',
+            tripleWhaleAccessToken: tokens.access_token,
+            tripleWhaleRefreshToken: tokens.refresh_token,
+            tripleWhaleAccessTokenExpiresAt: new Date(now.getTime() + tokens.expires_in * 1000),
+            tripleWhaleRefreshTokenExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+            createdAt: now,
+            updatedAt: now
+          })
+
+          await db.insert(workspaceBrands).values({
+            workspaceId: teamId,
+            brandId: brandId,
+            isDefault: 'true',
+            createdAt: now,
+            updatedAt: now
+          })
 
           res.writeHead(200, { 'Content-Type': 'text/html' })
           res.end(`
@@ -177,12 +170,31 @@ const app = new App({
           throw new Error('Missing team ID in installation')
         }
 
+        const userInfo = await app.client.users.info({
+          token: installation.bot?.token,
+          user: installation.user.id
+        });
+
+        const userEmail = userInfo.user?.profile?.email;
+        if (!userEmail) {
+          throw new Error('Could not get user email from Slack');
+        }
+
+        const dbUser = await db.query.user.findFirst({
+          where: eq(user.email, userEmail)
+        });
+
+        if (!dbUser) {
+          throw new Error('User not found in database');
+        }
+
         await db.insert(slackWorkspaces).values({
           id: teamId,
           name: installation.team?.name || '',
           slackBotToken: installation.bot?.token,
           slackBotId: installation.bot?.id || '',
           slackBotUserId: installation.bot?.userId || '',
+          userId: dbUser.id,
           updatedAt: now
         }).onConflictDoUpdate({
           target: [slackWorkspaces.id],
@@ -191,6 +203,7 @@ const app = new App({
             slackBotToken: installation.bot?.token,
             slackBotId: installation.bot?.id || '',
             slackBotUserId: installation.bot?.userId || '',
+            userId: dbUser.id,
             updatedAt: now
           }
         })
@@ -278,7 +291,7 @@ const app = new App({
     deleteInstallation: async (query) => {
       try {
         const teamId = query.teamId || ''
-        await db.delete(workspaceConnections).where(eq(workspaceConnections.slackWorkspaceId, teamId))
+        await db.delete(workspaceBrands).where(eq(workspaceBrands.workspaceId, teamId))
         await db.delete(slackWorkspaces).where(eq(slackWorkspaces.id, teamId))
       } catch (error) {
         console.error('Failed to delete installation:', error)
@@ -319,137 +332,136 @@ const app = new App({
   }
 })
 
-app.command('/connect', async ({ command, ack, respond }) => {
-  await ack()
+// app.command('/connect', async ({ command, ack, respond }) => {
+//   await ack()
 
-  try {
-    const uniqueAccountId = `lilosocial_${command.team_id}`
+//   try {
+//     const uniqueAccountId = `lilosocial_${command.team_id}`
 
-    try {
-      const registrationResponse = await fetch('https://api.triplewhale.com/api/v2/orcabase/dev/register-account', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'content-type': 'application/json',
-          'x-api-key': process.env.ORCABASE_API_KEY!
-        },
-        body: JSON.stringify({
-          appId: process.env.TRIPLEWHALE_CLIENT_ID!,
-          accountId: uniqueAccountId,
-          accountName: command.team_domain || command.team_id,
-          timezone: 'America/New_York',
-          currency: 'USD'
-        })
-      })
+//     try {
+//       const registrationResponse = await fetch('https://api.triplewhale.com/api/v2/orcabase/dev/register-account', {
+//         method: 'POST',
+//         headers: {
+//           'accept': 'application/json',
+//           'content-type': 'application/json',
+//           'x-api-key': process.env.ORCABASE_API_KEY!
+//         },
+//         body: JSON.stringify({
+//           appId: process.env.TRIPLEWHALE_CLIENT_ID!,
+//           accountId: uniqueAccountId,
+//           accountName: command.team_domain || command.team_id,
+//           timezone: 'America/New_York',
+//           currency: 'USD'
+//         })
+//       })
 
-      if (registrationResponse.ok) {
-        const registrationData = await registrationResponse.json()
-      }
-    } catch (error) {
-      console.log('Triple Whale registration error (might be already registered):', error)
-    }
+//       if (registrationResponse.ok) {
+//         const registrationData = await registrationResponse.json()
+//       }
+//     } catch (error) {
+//       console.log('Triple Whale registration error (might be already registered):', error)
+//     }
 
-    const params = new URLSearchParams({
-      client_id: process.env.TRIPLEWHALE_CLIENT_ID!,
-      redirect_uri: process.env.REDIRECT_URI!,
-      response_type: 'code',
-      scope: 'offline_access offline',
-      state: `slack_team_${command.team_id}`,
-      account_id: uniqueAccountId
-    })
+//     const params = new URLSearchParams({
+//       client_id: process.env.TRIPLEWHALE_CLIENT_ID!,
+//       redirect_uri: process.env.REDIRECT_URI!,
+//       response_type: 'code',
+//       scope: 'offline_access offline',
+//       state: `slack_team_${command.team_id}`,
+//       account_id: uniqueAccountId
+//     })
 
-    const authUrl = `https://api.triplewhale.com/api/v2/orcabase/dev/auth?${params.toString()}`
+//     const authUrl = `https://api.triplewhale.com/api/v2/orcabase/dev/auth?${params.toString()}`
 
-    await respond({
-      text: `Click this link to connect a new Triple Whale account to your workspace:\n${authUrl}\n\nThis account will be available to the entire workspace.`
-    })
-  } catch (error) {
-    console.error('Error in connect flow:', error)
-    await respond({
-      text: 'Sorry, something went wrong. Please try again.'
-    })
-  }
-})
+//     await respond({
+//       text: `Click this link to connect a new Triple Whale account to your workspace:\n${authUrl}\n\nThis account will be available to the entire workspace.`
+//     })
+//   } catch (error) {
+//     console.error('Error in connect flow:', error)
+//     await respond({
+//       text: 'Sorry, something went wrong. Please try again.'
+//     })
+//   }
+// })
 
-app.command('/integrations', async ({ command, ack, respond }) => {
-  await ack()
+// app.command('/integrations', async ({ command, ack, respond }) => {
+//   await ack()
 
-  try {
-    const connection = await db.select({
-      accountId: workspaceConnections.tripleWhaleAccountId,
-      accessToken: tripleWhaleAccounts.tripleWhaleAccessToken
-    })
-      .from(workspaceConnections)
-      .innerJoin(tripleWhaleAccounts, eq(workspaceConnections.tripleWhaleAccountId, tripleWhaleAccounts.id))
-      .where(and(
-        eq(workspaceConnections.slackWorkspaceId, command.team_id),
-        eq(workspaceConnections.isDefault, 'true')
-      ))
-      .limit(1)
-      .then(results => results[0])
+//   try {
+//     const connection = await db.select({
+//       brandId: workspaceBrands.brandId,
+//       accessToken: brands.tripleWhaleAccessToken
+//     })
+//       .from(workspaceBrands)
+//       .innerJoin(brands, eq(workspaceBrands.brandId, brands.id))
+//       .where(and(
+//         eq(workspaceBrands.workspaceId, command.team_id),
+//         eq(workspaceBrands.isDefault, 'true')
+//       ))
+//       .limit(1)
+//       .then(results => results[0])
 
-    if (!connection?.accessToken) {
-      await respond({
-        text: 'Your workspace needs to connect to Triple Whale first. Use `/connect` to get started.'
-      })
-      return
-    }
+//     if (!connection?.accessToken) {
+//       await respond({
+//         text: 'Your workspace needs to connect to Triple Whale first. Use `/connect` to get started.'
+//       })
+//       return
+//     }
 
-    const accountId = connection.accountId
+//     const tripleWhaleAccessToken = await TripleWhaleClient.getValidAccessToken(connection.brandId)
 
-    const integrationsUrl = await TripleWhaleClient.getIntegrationsUrl(accountId)
+//     const integrationsUrl = await TripleWhaleClient.getIntegrationsUrl(connection.brandId)
 
-    await respond({
-      text: `Click here to manage your workspace's Triple Whale integrations:\n${integrationsUrl}`
-    })
-  } catch (error) {
-    if (error instanceof Error && error.message === 'Refresh token expired. User needs to reauthenticate.') {
-      await respond({
-        text: 'Your workspace\'s Triple Whale connection has expired. Please use `/connect` to reconnect.'
-      })
-      return
-    }
-    console.error('Error getting integrations URL:', error)
-    await respond({
-      text: 'Sorry, something went wrong. Please try again.'
-    })
-  }
-})
+//     await respond({
+//       text: `Click here to manage your workspace's Triple Whale integrations:\n${integrationsUrl}`
+//     })
+//   } catch (error) {
+//     if (error instanceof Error && error.message === 'Refresh token expired. User needs to reauthenticate.') {
+//       await respond({
+//         text: 'Your workspace\'s Triple Whale connection has expired. Please use `/connect` to reconnect.'
+//       })
+//       return
+//     }
+//     console.error('Error getting integrations URL:', error)
+//     await respond({
+//       text: 'Sorry, something went wrong. Please try again.'
+//     })
+//   }
+// })
 
-app.command('/manage-connections', async ({ command, ack, respond }) => {
-  await ack()
+// app.command('/manage-connections', async ({ command, ack, respond }) => {
+//   await ack()
 
-  try {
-    const connections = await db.select({
-      id: workspaceConnections.tripleWhaleAccountId,
-      name: tripleWhaleAccounts.name,
-      isDefault: workspaceConnections.isDefault
-    })
-      .from(workspaceConnections)
-      .innerJoin(tripleWhaleAccounts, eq(workspaceConnections.tripleWhaleAccountId, tripleWhaleAccounts.id))
-      .where(eq(workspaceConnections.slackWorkspaceId, command.team_id))
+//   try {
+//     const connections = await db.select({
+//       brandId: workspaceBrands.brandId,
+//       name: brands.name
+//     })
+//       .from(workspaceBrands)
+//       .innerJoin(brands, eq(workspaceBrands.brandId, brands.id))
+//       .where(eq(workspaceBrands.workspaceId, command.team_id))
 
-    if (connections.length === 0) {
-      await respond({
-        text: 'No Triple Whale accounts connected. Use `/connect` to connect an account.'
-      })
-      return
-    }
+//     if (connections.length === 0) {
+//       await respond({
+//         text: 'No Triple Whale accounts connected. Use `/connect` to connect an account.'
+//       })
+//       return
+//     }
 
-    const connectionList = connections.map((conn, i) =>
-      `${i + 1}. ${conn.name} ${conn.isDefault === 'true' ? '(Default)' : ''}`
-    ).join('\n')
+//     const connectionList = connections.map((conn, i) =>
+//       `${i + 1}. ${conn.name}`
+//     ).join('\n')
 
-    await respond({
-      text: `Connected Triple Whale accounts:\n${connectionList}\n\nUse \`/set-default-account [number]\` to set the default account.`
-    })
-  } catch (error) {
-    console.error('Error listing connections:', error)
-    await respond({
-      text: 'Sorry, something went wrong. Please try again.'
-    })
-  }
-})
+//     await respond({
+//       text: `Connected Triple Whale accounts:\n${connectionList}\n\nUse \`/set-default-account [number]\` to set the default account.`
+//     })
+//   } catch (error) {
+//     console.error('Error listing connections:', error)
+//     await respond({
+//       text: 'Sorry, something went wrong. Please try again.'
+//     })
+//   }
+// })
 
 app.command('/set-default-account', async ({ command, ack, respond }) => {
   await ack()
@@ -463,8 +475,8 @@ app.command('/set-default-account', async ({ command, ack, respond }) => {
       return
     }
 
-    const connections = await db.query.workspaceConnections.findMany({
-      where: eq(workspaceConnections.slackWorkspaceId, command.team_id)
+    const connections = await db.query.workspaceBrands.findMany({
+      where: eq(workspaceBrands.workspaceId, command.team_id)
     })
 
     if (accountNumber < 1 || accountNumber > connections.length) {
@@ -476,15 +488,15 @@ app.command('/set-default-account', async ({ command, ack, respond }) => {
 
     const selectedConnection = connections[accountNumber - 1]
 
-    await db.update(workspaceConnections)
+    await db.update(workspaceBrands)
       .set({ isDefault: 'false' })
-      .where(eq(workspaceConnections.slackWorkspaceId, command.team_id))
+      .where(eq(workspaceBrands.workspaceId, command.team_id))
 
-    await db.update(workspaceConnections)
+    await db.update(workspaceBrands)
       .set({ isDefault: 'true' })
       .where(and(
-        eq(workspaceConnections.slackWorkspaceId, command.team_id),
-        eq(workspaceConnections.tripleWhaleAccountId, selectedConnection.tripleWhaleAccountId)
+        eq(workspaceBrands.workspaceId, command.team_id),
+        eq(workspaceBrands.brandId, selectedConnection.brandId)
       ))
 
     await respond({
@@ -528,14 +540,14 @@ app.event('app_mention', async ({ event, client, say }) => {
     }
 
     const connection = await db.select({
-      accountId: workspaceConnections.tripleWhaleAccountId,
-      accessToken: tripleWhaleAccounts.tripleWhaleAccessToken
+      brandId: workspaceBrands.brandId,
+      accessToken: brands.tripleWhaleAccessToken
     })
-      .from(workspaceConnections)
-      .innerJoin(tripleWhaleAccounts, eq(workspaceConnections.tripleWhaleAccountId, tripleWhaleAccounts.id))
+      .from(workspaceBrands)
+      .innerJoin(brands, eq(workspaceBrands.brandId, brands.id))
       .where(and(
-        eq(workspaceConnections.slackWorkspaceId, teamId),
-        eq(workspaceConnections.isDefault, 'true')
+        eq(workspaceBrands.workspaceId, teamId),
+        eq(workspaceBrands.isDefault, 'true')
       ))
       .limit(1)
       .then(results => results[0])
@@ -549,7 +561,7 @@ app.event('app_mention', async ({ event, client, say }) => {
       return
     }
 
-    const tripleWhaleAccessToken = await TripleWhaleClient.getValidAccessToken(connection.accountId)
+    const tripleWhaleAccessToken = await TripleWhaleClient.getValidAccessToken(connection.brandId)
 
     const response = await fetch('https://api.triplewhale.com/api/v2/orcabase/api/moby', {
       method: 'POST',

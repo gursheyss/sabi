@@ -17,7 +17,6 @@ export default async function LoginPage() {
       <div className="w-full max-w-[350px]">
         <LoginForm />
       </div>
-      <p>{process.env.BETTER_AUTH_URL}</p>
     </main>
   );
 }

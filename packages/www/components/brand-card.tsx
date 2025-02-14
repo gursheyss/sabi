@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Slack } from "lucide-react";
 import Link from "next/link";
 
 interface Brand {
@@ -16,7 +15,6 @@ interface Brand {
   name: string;
   website: string;
   connected: boolean;
-  slackConnected: boolean;
 }
 
 interface BrandCardProps {
@@ -39,7 +37,7 @@ export function BrandCard({ brand }: BrandCardProps) {
           {brand.website}
         </a>
       </CardContent>
-      <CardFooter className="flex flex-col space-y-2">
+      <CardFooter>
         <Button
           className="w-full"
           variant={brand.connected ? "secondary" : "default"}
@@ -48,13 +46,6 @@ export function BrandCard({ brand }: BrandCardProps) {
           <Link href={`/my-brands/${brand.id}/connections`}>
             {brand.connected ? "Manage Connections" : "Connect Accounts"}
           </Link>
-        </Button>
-        <Button
-          className="w-full"
-          variant={brand.slackConnected ? "secondary" : "outline"}
-        >
-          <Slack className="mr-2 h-4 w-4" />
-          {brand.slackConnected ? "Manage Slack" : "Connect Slack"}
         </Button>
       </CardFooter>
     </Card>
