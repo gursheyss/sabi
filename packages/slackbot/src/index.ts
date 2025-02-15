@@ -56,21 +56,13 @@ const app = new App({
   stateSecret: process.env.SLACK_STATE_SECRET!,
   scopes: [
     'app_mentions:read',
-    'channels:read',
+    'channels:history',
     'channels:join',
+    'channels:read',
     'chat:write',
     'commands',
-    'groups:read',
-    'im:history',
-    'im:read',
-    'im:write',
-    'mpim:read',
-    'mpim:write',
-    'team:read',
     'users:read',
-    'users:read.email',
-    'views:write',
-    'commands'
+    'users:read.email'
   ],
   customRoutes: [
     {
