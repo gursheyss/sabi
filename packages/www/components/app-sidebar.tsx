@@ -16,31 +16,33 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const data = {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    {
-      title: "My Brands",
-      url: "/my-brands",
-      icon: PieChart,
-      isActive: true,
-      items: [],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Connect to Slack",
-      url: "https://lighthouse-slackbot.up.railway.app/slack/install",
-      icon: Slack,
-    },
-  ],
-};
+    name: string;
+    email: string;
+    avatar: string;
+  };
+}
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+const navMain = [
+  {
+    title: "My Brands",
+    url: "/my-brands",
+    icon: PieChart,
+    isActive: true,
+    items: [],
+  },
+];
+
+const navSecondary = [
+  {
+    title: "Connect to Slack",
+    url: "https://lighthouse-slackbot.up.railway.app/slack/install",
+    icon: Slack,
+  },
+];
+
+export function AppSidebar({ user, ...props }: AppSidebarProps) {
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -61,11 +63,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={navMain} />
+        <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   );
