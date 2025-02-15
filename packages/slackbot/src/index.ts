@@ -762,6 +762,20 @@ app.action('run_query_with_brand', async ({ ack, body, client }) => {
       where: eq(brands.id, selectedBrandId)
     });
 
+    await client.chat.update({
+      channel: (body as any).channel.id,
+      ts: (body as any).message.ts,
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*Running query for brand: ${brand?.name}*`
+          }
+        }
+      ]
+    });
+
     const loadingMessage = await client.chat.postMessage({
       channel: (body as any).channel.id,
       text: '🔍 Searching for data...',
