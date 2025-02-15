@@ -116,7 +116,7 @@ export const channelBrandMappings = pgTable('channel_brand_mappings', {
   workspaceId: text('workspace_id').notNull().references(() => slackWorkspaces.id),
   channelId: text('channel_id').notNull(),
   channelName: text('channel_name').notNull(),
-  brandId: text('brand_id').notNull().references(() => brands.id),
+  brandId: text('brand_id').default('').references(() => brands.id),
   createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
