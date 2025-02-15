@@ -676,6 +676,7 @@ app.event('app_mention', async ({ event, client, say }) => {
     }
 
     await say({
+      thread_ts: event.ts,
       blocks: [
         {
           type: 'section',
