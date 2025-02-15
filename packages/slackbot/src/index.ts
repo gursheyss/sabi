@@ -4,6 +4,7 @@ import { eq, and, ne } from 'drizzle-orm'
 import { URLSearchParams } from 'url'
 import db from '@sabi/database'
 import { workspaceBrands, slackWorkspaces, brands, user, channelBrandMappings } from '@sabi/database/src/schema'
+import { nanoid } from 'nanoid'
 
 function formatMathExpressions(text: string): string {
   return text.replace(/\\\((.*?)\\\)/g, (_, expression) => {
@@ -215,13 +216,33 @@ const app = new App({
             if (channelsResponse.channels) {
               for (const channel of channelsResponse.channels) {
                 if (channel.id && channel.name) {
+                  await db.insert(channelBrandMappings)
+                    .values({
+                      id: nanoid(),
+                      workspaceId: teamId,
+                      channelId: channel.id,
+                      channelName: channel.name,
+                      brandId: '',
+                      createdAt: now,
+                      updatedAt: now
+                    })
+                    .onConflictDoUpdate({
+                      target: [channelBrandMappings.workspaceId, channelBrandMappings.channelId],
+                      set: {
+                        channelName: channel.name,
+                        updatedAt: now
+                      }
+                    });
+
                   try {
                     await app.client.conversations.join({
                       token: installation.bot.token,
                       channel: channel.id
                     });
-                  } catch (error) {
-                    console.log(`Could not join channel ${channel.name}:`, error);
+                  } catch (error: any) {
+                    if (error.data?.error !== 'already_in_channel') {
+                      console.log(`Could not join channel ${channel.name}:`, error);
+                    }
                   }
                 }
               }
