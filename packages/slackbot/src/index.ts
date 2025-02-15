@@ -721,14 +721,6 @@ app.event('app_mention', async ({ event, client, say }) => {
       return;
     }
 
-    if (!channelMapping.brandId) {
-      await say({
-        text: 'This channel is not mapped to any brand. Please map it to a brand in the dashboard first.',
-        thread_ts: event.ts
-      });
-      return;
-    }
-
     const brand = await db.query.brands.findFirst({
       where: eq(brands.id, channelMapping.brandId),
     });
