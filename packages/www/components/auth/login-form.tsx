@@ -33,10 +33,10 @@ export function LoginForm({
     const password = formData.get("password") as string;
 
     try {
-      const { data, error } = await authClient.signIn.email({
+      const { error } = await authClient.signIn.email({
         email,
         password,
-        callbackURL: "/my-brands",
+        callbackURL: "/",
         rememberMe: false,
       });
 
@@ -44,7 +44,7 @@ export function LoginForm({
         throw error;
       }
 
-      router.push("/my-brands");
+      router.push("/");
       router.refresh();
     } catch (error) {
       console.error("Authentication error:", error);

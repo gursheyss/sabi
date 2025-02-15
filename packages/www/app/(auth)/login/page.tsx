@@ -9,7 +9,7 @@ export default async function LoginPage() {
   });
 
   if (session?.user) {
-    redirect("/my-brands");
+    redirect("/");
   }
 
   return (

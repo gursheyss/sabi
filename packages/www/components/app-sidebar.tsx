@@ -27,7 +27,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 const navMain = [
   {
     title: "My Brands",
-    url: "/my-brands",
+    url: "/",
     icon: PieChart,
     isActive: true,
     items: [],

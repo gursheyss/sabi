@@ -16,8 +16,8 @@ const routes = [
     url: "/dashboard",
   },
   {
-    title: "My Brands",
-    url: "/my-brands",
+    name: "My Brands",
+    url: "/",
   },
 ];
 
@@ -27,7 +27,6 @@ export function Breadcrumbs() {
 
   // Handle dynamic routes
   if (segments.includes("connections")) {
-    const brandId = segments[segments.indexOf("my-brands") + 1];
     return (
       <Breadcrumb>
         <BreadcrumbList>
@@ -36,7 +35,7 @@ export function Breadcrumbs() {
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink href="/my-brands">My Brands</BreadcrumbLink>
+            <BreadcrumbLink href="/">My Brands</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
