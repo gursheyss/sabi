@@ -8,6 +8,9 @@ import { eq, and, ne } from "drizzle-orm";
 import { slackWorkspaces } from "@sabi/database/src/schema";
 import { workspaceBrands } from "@sabi/database/src/schema";
 import { TripleWhaleClient } from "@sabi/triplewhale";
+import { channelBrandMappings } from "@sabi/database/src/schema";
+import { nanoid } from "nanoid";
+import { WebClient } from "@slack/web-api";
 
 export async function getBrands() {
   const session = await auth.api.getSession({
@@ -174,4 +177,97 @@ export async function refreshBrandConnection(brandId: string) {
   return {
     authUrl: `https://api.triplewhale.com/api/v2/orcabase/dev/auth?${params.toString()}`
   };
+}
+
+export async function updateChannelMappings({
+  brandId,
+  workspaceId,
+  channelIds,
+}: {
+  brandId: string;
+  workspaceId: string;
+  channelIds: string[];
+}) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  await db.delete(channelBrandMappings)
+    .where(and(
+      eq(channelBrandMappings.brandId, brandId),
+      eq(channelBrandMappings.workspaceId, workspaceId)
+    ));
+
+  const workspace = await db.query.slackWorkspaces.findFirst({
+    where: eq(slackWorkspaces.id, workspaceId),
+  });
+
+  if (!workspace?.slackBotToken) {
+    throw new Error("Workspace not found or no bot token");
+  }
+
+  const slack = new WebClient(workspace.slackBotToken);
+  const channelsResponse = await slack.conversations.list({
+    types: "public_channel",
+    exclude_archived: true,
+  });
+
+  const channelMap = new Map(
+    channelsResponse.channels?.map((channel) => [
+      channel.id,
+      channel.name,
+    ])
+  );
+
+  await Promise.all(
+    channelIds.map(async (channelId) => {
+      const channelName = channelMap.get(channelId);
+      if (!channelName) return;
+
+      await db.insert(channelBrandMappings).values({
+        id: nanoid(),
+        workspaceId,
+        channelId,
+        channelName,
+        brandId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    })
+  );
+
+  return { success: true };
+}
+
+export async function getSlackChannels() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const workspace = await db.query.slackWorkspaces.findFirst({
+    where: eq(slackWorkspaces.userId, session.user.id),
+  });
+
+  if (!workspace?.slackBotToken) {
+    throw new Error("No Slack workspace connected");
+  }
+
+  const slack = new WebClient(workspace.slackBotToken);
+  const channelsResponse = await slack.conversations.list({
+    types: "public_channel",
+    exclude_archived: true,
+  });
+
+  return channelsResponse.channels?.map((channel) => ({
+    id: channel.id,
+    name: channel.name,
+  })) || [];
 } 

@@ -9,9 +9,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getIntegrationsUrl, refreshBrandConnection } from "@/app/_actions/brands";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  getIntegrationsUrl,
+  refreshBrandConnection,
+  updateChannelMappings,
+} from "@/app/_actions/brands";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Settings } from "lucide-react";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface Brand {
   id: string;
@@ -20,11 +32,28 @@ interface Brand {
   connected: boolean;
 }
 
-interface BrandCardProps {
-  brand: Brand;
+interface Channel {
+  id: string;
+  name: string;
 }
 
-export function BrandCard({ brand }: BrandCardProps) {
+interface BrandCardProps {
+  brand: Brand;
+  workspaceId?: string;
+  channels?: Channel[];
+  mappedChannelIds?: string[];
+}
+
+export function BrandCard({
+  brand,
+  workspaceId,
+  channels = [],
+  mappedChannelIds = [],
+}: BrandCardProps) {
+  const [selectedChannels, setSelectedChannels] =
+    React.useState<string[]>(mappedChannelIds);
+  const [isUpdating, setIsUpdating] = React.useState(false);
+
   const handleConnect = React.useCallback(async () => {
     try {
       const integrationsUrl = await getIntegrationsUrl(brand.id);
@@ -47,6 +76,28 @@ export function BrandCard({ brand }: BrandCardProps) {
       toast.error("Failed to refresh connection. Please try again.");
     }
   }, [brand.id]);
+
+  const handleUpdateChannels = React.useCallback(async () => {
+    if (!workspaceId) {
+      toast.error("No workspace connected");
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      await updateChannelMappings({
+        brandId: brand.id,
+        workspaceId,
+        channelIds: selectedChannels,
+      });
+      toast.success("Channel mappings updated successfully");
+    } catch (error) {
+      console.error("Error updating channel mappings:", error);
+      toast.error("Failed to update channel mappings. Please try again.");
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [brand.id, workspaceId, selectedChannels]);
 
   return (
     <Card className="flex flex-col">
@@ -71,14 +122,50 @@ export function BrandCard({ brand }: BrandCardProps) {
         >
           {brand.connected ? "Manage Connections" : "Connect Accounts"}
         </Button>
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={handleRefreshConnection}
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh Connection
-          </Button>
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={handleRefreshConnection}
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh Connection
+        </Button>
+        {workspaceId && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="w-full" variant="outline">
+                <Settings className="mr-2 h-4 w-4" />
+                Channel Mappings
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Map Channels to {brand.name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Select Channels</label>
+                  <MultiSelect
+                    options={channels.map((channel) => ({
+                      label: `#${channel.name}`,
+                      value: channel.id,
+                    }))}
+                    selected={selectedChannels}
+                    onChange={setSelectedChannels}
+                    placeholder="Select channels..."
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleUpdateChannels}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? "Updating..." : "Update Mappings"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </CardFooter>
     </Card>
   );

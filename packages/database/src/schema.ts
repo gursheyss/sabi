@@ -111,6 +111,27 @@ export const workspaceBrands = pgTable('workspace_brands', {
   pk: primaryKey(table.workspaceId, table.brandId),
 }));
 
+export const channelBrandMappings = pgTable('channel_brand_mappings', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id').notNull().references(() => slackWorkspaces.id),
+  channelId: text('channel_id').notNull(),
+  channelName: text('channel_name').notNull(),
+  brandId: text('brand_id').notNull().references(() => brands.id),
+  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const channelBrandMappingsRelations = relations(channelBrandMappings, ({ one }) => ({
+  workspace: one(slackWorkspaces, {
+    fields: [channelBrandMappings.workspaceId],
+    references: [slackWorkspaces.id],
+  }),
+  brand: one(brands, {
+    fields: [channelBrandMappings.brandId],
+    references: [brands.id],
+  }),
+}));
+
 export type User = InferSelectModel<typeof user>;
 export type Session = InferSelectModel<typeof session>;
 export type Account = InferSelectModel<typeof account>;
@@ -118,3 +139,4 @@ export type Verification = InferSelectModel<typeof verification>;
 export type SlackWorkspace = InferSelectModel<typeof slackWorkspaces>;
 export type Brand = InferSelectModel<typeof brands>;
 export type WorkspaceBrand = InferSelectModel<typeof workspaceBrands>;
+export type ChannelBrandMapping = InferSelectModel<typeof channelBrandMappings>;

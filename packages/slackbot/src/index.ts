@@ -3,7 +3,7 @@ import { TripleWhaleClient } from './lib/triplewhale'
 import { eq, and, ne } from 'drizzle-orm'
 import { URLSearchParams } from 'url'
 import db from '@sabi/database'
-import { workspaceBrands, slackWorkspaces, brands, user } from '@sabi/database/src/schema'
+import { workspaceBrands, slackWorkspaces, brands, user, channelBrandMappings } from '@sabi/database/src/schema'
 
 function formatMathExpressions(text: string): string {
   return text.replace(/\\\((.*?)\\\)/g, (_, expression) => {
@@ -216,12 +216,28 @@ const app = new App({
             const channelsResponse = await app.client.conversations.list({
               token: installation.bot.token,
               types: 'public_channel',
-              exclude_archived: true
-            })
+              exclude_archived: true,
+              limit: 1000
+            });
+
+            if (channelsResponse.channels) {
+              for (const channel of channelsResponse.channels) {
+                if (channel.id && channel.name) {
+                  try {
+                    await app.client.conversations.join({
+                      token: installation.bot.token,
+                      channel: channel.id
+                    });
+                  } catch (error) {
+                    console.log(`Could not join channel ${channel.name}:`, error);
+                  }
+                }
+              }
+            }
 
             const defaultChannel = channelsResponse.channels?.find(
               channel => channel.name === 'general' || channel.name === 'random'
-            )
+            );
 
             if (defaultChannel?.id) {
               try {
@@ -229,18 +245,18 @@ const app = new App({
                   token: installation.bot.token,
                   channel: defaultChannel.id,
                   text: '👋 Hello! I\'m the Triple Whale bot. Use `/connect` to connect your workspace to Triple Whale accounts, and then you can mention me in any channel to ask questions about your data!'
-                })
+                });
               } catch (error) {
-                console.error('Failed to send welcome message:', error)
+                console.error('Failed to send welcome message:', error);
               }
             }
           } catch (error) {
-            console.error('Failed to find default channel:', error)
+            console.error('Failed to fetch or store channels:', error);
           }
         }
       } catch (error) {
-        console.error('Failed to store installation:', error)
-        throw error
+        console.error('Failed to store installation:', error);
+        throw error;
       }
     },
     fetchInstallation: async (query) => {
@@ -666,56 +682,126 @@ app.event('app_mention', async ({ event, client, say }) => {
       return;
     }
 
-    const userBrands = await db.query.brands.findMany({
-      where: eq(brands.userId, workspace.userId!),
+    const channelMapping = await db.query.channelBrandMappings.findFirst({
+      where: and(
+        eq(channelBrandMappings.workspaceId, teamId),
+        eq(channelBrandMappings.channelId, event.channel)
+      ),
     });
 
-    if (userBrands.length === 0) {
-      await say('No brands found. Please connect some brands first.');
+    if (!channelMapping) {
+      await say({
+        text: 'This channel is not mapped to any brand. Please map it to a brand in the dashboard first.',
+        thread_ts: event.ts
+      });
       return;
     }
 
-    await say({
-      thread_ts: event.ts,
-      blocks: [
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: '*Select a brand to run your query:*'
-          }
-        },
-        {
-          type: 'actions',
-          block_id: 'brand_selection',
-          elements: [
-            {
-              type: 'static_select',
-              action_id: 'run_query_with_brand',
-              placeholder: {
-                type: 'plain_text',
-                text: 'Select a brand'
-              },
-              options: userBrands.map(brand => ({
-                text: {
-                  type: 'plain_text',
-                  text: brand.name
-                },
-                value: `${brand.id}|||${messageText}`
-              }))
-            }
-          ]
-        }
-      ]
+    const brand = await db.query.brands.findFirst({
+      where: eq(brands.id, channelMapping.brandId),
     });
+
+    if (!brand) {
+      await say({
+        text: 'The mapped brand was not found. Please check the channel mapping in the dashboard.',
+        thread_ts: event.ts
+      });
+      return;
+    }
+
+    const loadingMessage = await say({
+      text: `🔍 Searching for data in ${brand.name}...`,
+      thread_ts: event.ts
+    }) as { ts: string };
+
+    const tripleWhaleAccessToken = await TripleWhaleClient.getValidAccessToken(brand.id);
+
+    const response = await fetch('https://api.triplewhale.com/api/v2/orcabase/api/moby', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tripleWhaleAccessToken}`,
+      },
+      body: JSON.stringify({
+        question: messageText + " do not output into a visualization, give me the data in text form",
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to query Moby AI: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    let messages: string[] = [];
+    let debugMessages: string[] = [];
+
+    if (result.isError) {
+      messages.push(`Error: ${result.error || 'An unknown error occurred'}`);
+    } else {
+      if (result.assistantConclusion) {
+        let formattedConclusion = formatMessage(result.assistantConclusion);
+        if (formattedConclusion) {
+          messages.push(formattedConclusion);
+        }
+      }
+
+      if (result.responses && Array.isArray(result.responses)) {
+        for (const resp of result.responses) {
+          if (resp.assistant) {
+            let formattedResponse = formatMessage(resp.assistant);
+            if (formattedResponse) {
+              debugMessages.push(formattedResponse);
+            }
+          }
+        }
+      }
+
+      if (messages.length === 0 && debugMessages.length === 0) {
+        messages.push('Error: No response received from Triple Whale');
+      }
+    }
+
+    await client.chat.update({
+      channel: event.channel,
+      ts: loadingMessage.ts!,
+      text: `📊 Here is your Triple Whale data for ${brand.name}:`
+    });
+
+    const MAX_MESSAGE_LENGTH = 3500;
+    const messageChunks = [];
+
+    let fullMessage = messages.join('\n\n').trim();
+
+    if (debugMessages.length > 0) {
+      fullMessage += '\n\n*Debug Information:*\n' + debugMessages.join('\n\n');
+    }
+
+    fullMessage = fullMessage.replace(/\n{3,}/g, '\n\n').trim();
+
+    for (let i = 0; i < fullMessage.length; i += MAX_MESSAGE_LENGTH) {
+      messageChunks.push(fullMessage.slice(i, i + MAX_MESSAGE_LENGTH));
+    }
+
+    for (const chunk of messageChunks) {
+      await say({
+        text: chunk,
+        thread_ts: event.thread_ts || event.ts,
+        mrkdwn: true
+      });
+    }
   } catch (error) {
-    console.error('Error in app_mention handler:', error)
+    console.error('Error in app_mention handler:', error);
+    const errorMessage = error instanceof Error && error.message === 'Refresh token expired. User needs to reauthenticate.'
+      ? 'Your Triple Whale connection has expired. Please use `/connect` to reconnect.'
+      : 'Sorry, something went wrong. Please try again.';
+
     await say({
-      text: 'Sorry, something went wrong. Please try again.',
+      text: errorMessage,
       thread_ts: event.thread_ts || event.ts
-    })
+    });
   }
-})
+});
 
 app.action('run_query_with_brand', async ({ ack, body, client }) => {
   await ack();

@@ -24,6 +24,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface SlackBrand {
+  id: string;
+  name: string;
+}
 
 const brandFormSchema = z.object({
   name: z.string().min(2, {
@@ -32,6 +44,9 @@ const brandFormSchema = z.object({
   website: z.string().url({
     message: "Please enter a valid website URL.",
   }),
+  slackBrandId: z.string({
+    required_error: "Please select a Slack brand to connect.",
+  }),
 });
 
 type BrandFormValues = z.infer<typeof brandFormSchema>;
@@ -39,15 +54,22 @@ type BrandFormValues = z.infer<typeof brandFormSchema>;
 const defaultValues: Partial<BrandFormValues> = {
   name: "",
   website: "",
+  slackBrandId: "",
 };
 
 interface AddBrandModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (values: BrandFormValues) => Promise<{ authUrl: string }>;
+  slackBrands?: SlackBrand[];
 }
 
-export function AddBrandModal({ isOpen, onClose, onSave }: AddBrandModalProps) {
+export function AddBrandModal({
+  isOpen,
+  onClose,
+  onSave,
+  slackBrands = [],
+}: AddBrandModalProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const form = useForm<BrandFormValues>({
     resolver: zodResolver(brandFormSchema),
@@ -85,17 +107,55 @@ export function AddBrandModal({ isOpen, onClose, onSave }: AddBrandModalProps) {
     }
   }
 
+  const selectedBrand = slackBrands.find(
+    (brand) => brand.id === form.watch("slackBrandId")
+  );
+
+  React.useEffect(() => {
+    if (selectedBrand) {
+      form.setValue("name", selectedBrand.name);
+    }
+  }, [selectedBrand, form]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add New Brand</DialogTitle>
           <DialogDescription>
-            Enter your brand details below to create a new brand profile.
+            Select a brand from your Slack workspace to connect with Triple
+            Whale.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="slackBrandId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Slack Brand</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a brand from Slack" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {slackBrands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="name"
@@ -103,7 +163,11 @@ export function AddBrandModal({ isOpen, onClose, onSave }: AddBrandModalProps) {
                 <FormItem>
                   <FormLabel>Brand Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter brand name" {...field} />
+                    <Input
+                      placeholder="Enter brand name"
+                      {...field}
+                      disabled={!!selectedBrand}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
