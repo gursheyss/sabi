@@ -648,10 +648,9 @@ app.event('app_mention', async ({ event, client, say }) => {
   try {
     if (!messageText) {
       await say({
-        text: `Hey <@${event.user}>! 👋 Use these commands to interact with Triple Whale:
-• \`/connect\` - Connect a new Triple Whale account
-• \`/select-brand\` - Choose which brand to use for queries
-• \`/manage-connections\` - List and manage your Triple Whale accounts`
+        text: `Hey <@${event.user}>! 👋 To get started:
+• Use \`/select-brand\` to choose which brand to query
+• Then just mention me with your question about your ads data!`
       })
       return
     }
