@@ -643,7 +643,6 @@ app.action('select_brand', async ({ ack, body, respond }) => {
 
 app.event('app_mention', async ({ event, client, say }) => {
   const messageText = event.text.replace(/<@[^>]+>/, '').trim()
-  let loadingMessage: { ts: string } | undefined
 
   try {
     if (!messageText) {
@@ -658,7 +657,6 @@ app.event('app_mention', async ({ event, client, say }) => {
       throw new Error('Could not determine team ID')
     }
 
-    // Get workspace info
     const workspace = await db.query.slackWorkspaces.findFirst({
       where: eq(slackWorkspaces.id, teamId),
     });
@@ -668,7 +666,6 @@ app.event('app_mention', async ({ event, client, say }) => {
       return;
     }
 
-    // Get user's brands
     const userBrands = await db.query.brands.findMany({
       where: eq(brands.userId, workspace.userId!),
     });
@@ -678,162 +675,44 @@ app.event('app_mention', async ({ event, client, say }) => {
       return;
     }
 
-    // Check if there's a default brand set
-    const defaultBrand = await db.select({
-      brandId: workspaceBrands.brandId,
-      accessToken: brands.tripleWhaleAccessToken
-    })
-      .from(workspaceBrands)
-      .innerJoin(brands, eq(workspaceBrands.brandId, brands.id))
-      .where(and(
-        eq(workspaceBrands.workspaceId, teamId),
-        eq(workspaceBrands.isDefault, 'true')
-      ))
-      .limit(1)
-      .then(results => results[0])
-
-    if (!defaultBrand?.accessToken) {
-      // No default brand set, show brand selection menu
-      await say({
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: '*Select a brand to run your query:*'
-            }
-          },
-          {
-            type: 'actions',
-            block_id: 'brand_selection',
-            elements: [
-              {
-                type: 'static_select',
-                action_id: 'run_query_with_brand',
-                placeholder: {
+    await say({
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '*Select a brand to run your query:*'
+          }
+        },
+        {
+          type: 'actions',
+          block_id: 'brand_selection',
+          elements: [
+            {
+              type: 'static_select',
+              action_id: 'run_query_with_brand',
+              placeholder: {
+                type: 'plain_text',
+                text: 'Select a brand'
+              },
+              options: userBrands.map(brand => ({
+                text: {
                   type: 'plain_text',
-                  text: 'Select a brand'
+                  text: brand.name
                 },
-                options: userBrands.map(brand => ({
-                  text: {
-                    type: 'plain_text',
-                    text: brand.name
-                  },
-                  value: `${brand.id}|||${messageText}`
-                }))
-              }
-            ]
-          }
-        ]
-      });
-      return;
-    }
-
-    loadingMessage = await say({
-      text: '🔍 Searching for data...',
-      thread_ts: event.thread_ts || event.ts
-    }) as { ts: string }
-
-    const tripleWhaleAccessToken = await TripleWhaleClient.getValidAccessToken(defaultBrand.brandId)
-
-    const response = await fetch('https://api.triplewhale.com/api/v2/orcabase/api/moby', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tripleWhaleAccessToken}`,
-      },
-      body: JSON.stringify({
-        question: messageText + " do not output into a visualization, give me the data in text form",
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to query Moby AI: ${response.statusText}`)
-    }
-
-    const result = await response.json()
-    let messages: string[] = []
-    let debugMessages: string[] = []
-
-    if (result.isError) {
-      messages.push(`Error: ${result.error || 'An unknown error occurred'}`)
-    } else {
-      if (result.assistantConclusion) {
-        let formattedConclusion = formatMessage(result.assistantConclusion)
-        if (formattedConclusion) {
-          messages.push(formattedConclusion)
-        }
-      }
-
-      if (result.responses && Array.isArray(result.responses)) {
-        for (const resp of result.responses) {
-          if (resp.assistant) {
-            let formattedResponse = formatMessage(resp.assistant)
-            if (formattedResponse) {
-              debugMessages.push(formattedResponse)
+                value: `${brand.id}|||${messageText}`
+              }))
             }
-          }
+          ]
         }
-      }
-
-      if (messages.length === 0 && debugMessages.length === 0) {
-        messages.push('Error: No response received from Triple Whale')
-      }
-    }
-
-    await client.chat.update({
-      channel: event.channel,
-      ts: loadingMessage.ts!,
-      text: '📊 Here is your Triple Whale data:'
-    })
-
-    const MAX_MESSAGE_LENGTH = 3500
-    const messageChunks = []
-
-    let fullMessage = messages.join('\n\n').trim()
-
-    if (debugMessages.length > 0) {
-      fullMessage += '\n\n*Debug Information:*\n' + debugMessages.join('\n\n')
-    }
-
-    fullMessage = fullMessage.replace(/\n{3,}/g, '\n\n').trim()
-
-    for (let i = 0; i < fullMessage.length; i += MAX_MESSAGE_LENGTH) {
-      messageChunks.push(fullMessage.slice(i, i + MAX_MESSAGE_LENGTH))
-    }
-
-    for (const chunk of messageChunks) {
-      await say({
-        text: chunk,
-        thread_ts: event.thread_ts || event.ts,
-        mrkdwn: true
-      })
-    }
-
+      ]
+    });
   } catch (error) {
     console.error('Error in app_mention handler:', error)
-
-    const errorMessage = error instanceof Error && error.message === 'Refresh token expired. User needs to reauthenticate.'
-      ? 'Your Triple Whale connection has expired. Please use `/connect` to reconnect.'
-      : 'Sorry, something went wrong. Please try again.'
-
-    try {
-      if (loadingMessage?.ts) {
-        await client.chat.update({
-          channel: event.channel,
-          ts: loadingMessage.ts,
-          text: errorMessage
-        })
-      } else {
-        throw new Error('No loading message to update')
-      }
-    } catch (updateError) {
-      await say({
-        text: errorMessage,
-        thread_ts: event.thread_ts || event.ts
-      })
-    }
+    await say({
+      text: 'Sorry, something went wrong. Please try again.',
+      thread_ts: event.thread_ts || event.ts
+    })
   }
 })
 
