@@ -228,6 +228,7 @@ const app = new App({
                       workspaceId: teamId,
                       channelId: channel.id,
                       channelName: channel.name,
+                      brandId: '',
                       createdAt: now,
                       updatedAt: now
                     });
@@ -714,14 +715,6 @@ app.event('app_mention', async ({ event, client, say }) => {
     });
 
     if (!channelMapping) {
-      await say({
-        text: 'This channel is not mapped to any brand. Please map it to a brand in the dashboard first.',
-        thread_ts: event.ts
-      });
-      return;
-    }
-
-    if (!channelMapping.brandId) {
       await say({
         text: 'This channel is not mapped to any brand. Please map it to a brand in the dashboard first.',
         thread_ts: event.ts
