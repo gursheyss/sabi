@@ -214,10 +214,16 @@ const app = new App({
             });
 
             if (channelsResponse.channels) {
+              const existingMappings = await db.query.channelBrandMappings.findMany({
+                where: eq(channelBrandMappings.workspaceId, teamId)
+              });
+
+              const existingChannelIds = new Set(existingMappings.map(m => m.channelId));
+
               for (const channel of channelsResponse.channels) {
                 if (channel.id && channel.name) {
-                  await db.insert(channelBrandMappings)
-                    .values({
+                  if (!existingChannelIds.has(channel.id)) {
+                    await db.insert(channelBrandMappings).values({
                       id: nanoid(),
                       workspaceId: teamId,
                       channelId: channel.id,
@@ -225,14 +231,20 @@ const app = new App({
                       brandId: '',
                       createdAt: now,
                       updatedAt: now
-                    })
-                    .onConflictDoUpdate({
-                      target: [channelBrandMappings.workspaceId, channelBrandMappings.channelId],
-                      set: {
+                    });
+                  } else {
+                    await db.update(channelBrandMappings)
+                      .set({
                         channelName: channel.name,
                         updatedAt: now
-                      }
-                    });
+                      })
+                      .where(
+                        and(
+                          eq(channelBrandMappings.workspaceId, teamId),
+                          eq(channelBrandMappings.channelId, channel.id)
+                        )
+                      );
+                  }
 
                   try {
                     await app.client.conversations.join({
