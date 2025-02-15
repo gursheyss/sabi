@@ -648,25 +648,38 @@ app.event('app_mention', async ({ event, client, say }) => {
   try {
     if (!messageText) {
       await say({
-        text: `Hey <@${event.user}>! 👋 To get started:
-• Use \`/select-brand\` to choose which brand to query
-• Then just mention me with your question about your ads data!`
+        text: `Hey <@${event.user}>! 👋 Just mention me with your question about your ads data!`
       })
       return
     }
 
-    loadingMessage = await say({
-      text: '🔍 Searching for data...',
-      thread_ts: event.thread_ts || event.ts
-    }) as { ts: string }
-
     const teamId = event.team
-
     if (!teamId) {
       throw new Error('Could not determine team ID')
     }
 
-    const connection = await db.select({
+    // Get workspace info
+    const workspace = await db.query.slackWorkspaces.findFirst({
+      where: eq(slackWorkspaces.id, teamId),
+    });
+
+    if (!workspace) {
+      await say('Workspace not found. Please reinstall the app.');
+      return;
+    }
+
+    // Get user's brands
+    const userBrands = await db.query.brands.findMany({
+      where: eq(brands.userId, workspace.userId!),
+    });
+
+    if (userBrands.length === 0) {
+      await say('No brands found. Please connect some brands first.');
+      return;
+    }
+
+    // Check if there's a default brand set
+    const defaultBrand = await db.select({
       brandId: workspaceBrands.brandId,
       accessToken: brands.tripleWhaleAccessToken
     })
@@ -679,16 +692,49 @@ app.event('app_mention', async ({ event, client, say }) => {
       .limit(1)
       .then(results => results[0])
 
-    if (!connection?.accessToken) {
-      await client.chat.update({
-        channel: event.channel,
-        ts: loadingMessage.ts!,
-        text: 'No default brand selected. Please use `/select-brand` to choose a brand first.'
-      })
-      return
+    if (!defaultBrand?.accessToken) {
+      // No default brand set, show brand selection menu
+      await say({
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: '*Select a brand to run your query:*'
+            }
+          },
+          {
+            type: 'actions',
+            block_id: 'brand_selection',
+            elements: [
+              {
+                type: 'static_select',
+                action_id: 'run_query_with_brand',
+                placeholder: {
+                  type: 'plain_text',
+                  text: 'Select a brand'
+                },
+                options: userBrands.map(brand => ({
+                  text: {
+                    type: 'plain_text',
+                    text: brand.name
+                  },
+                  value: `${brand.id}|||${messageText}`
+                }))
+              }
+            ]
+          }
+        ]
+      });
+      return;
     }
 
-    const tripleWhaleAccessToken = await TripleWhaleClient.getValidAccessToken(connection.brandId)
+    loadingMessage = await say({
+      text: '🔍 Searching for data...',
+      thread_ts: event.thread_ts || event.ts
+    }) as { ts: string }
+
+    const tripleWhaleAccessToken = await TripleWhaleClient.getValidAccessToken(defaultBrand.brandId)
 
     const response = await fetch('https://api.triplewhale.com/api/v2/orcabase/api/moby', {
       method: 'POST',
@@ -790,6 +836,149 @@ app.event('app_mention', async ({ event, client, say }) => {
     }
   }
 })
+
+app.action('run_query_with_brand', async ({ ack, body, client }) => {
+  await ack();
+
+  const action = (body as any).actions[0];
+  const teamId = (body as any).team?.id;
+
+  if (!action?.selected_option?.value || !teamId) {
+    await client.chat.postMessage({
+      channel: (body as any).channel.id,
+      text: 'Invalid selection'
+    });
+    return;
+  }
+
+  const [selectedBrandId, queryText] = action.selected_option.value.split('|||');
+
+  try {
+    // Set as default brand
+    await db.insert(workspaceBrands).values({
+      workspaceId: teamId,
+      brandId: selectedBrandId,
+      isDefault: 'true',
+      updatedAt: new Date()
+    }).onConflictDoUpdate({
+      target: [workspaceBrands.workspaceId, workspaceBrands.brandId],
+      set: {
+        isDefault: 'true',
+        updatedAt: new Date()
+      }
+    });
+
+    await db.update(workspaceBrands)
+      .set({ isDefault: 'false' })
+      .where(
+        and(
+          eq(workspaceBrands.workspaceId, teamId),
+          ne(workspaceBrands.brandId, selectedBrandId)
+        )
+      );
+
+    // Get brand info
+    const brand = await db.query.brands.findFirst({
+      where: eq(brands.id, selectedBrandId)
+    });
+
+    const loadingMessage = await client.chat.postMessage({
+      channel: (body as any).channel.id,
+      text: '🔍 Searching for data...',
+      thread_ts: (body as any).message.thread_ts || (body as any).message.ts
+    });
+
+    const tripleWhaleAccessToken = await TripleWhaleClient.getValidAccessToken(selectedBrandId);
+
+    const response = await fetch('https://api.triplewhale.com/api/v2/orcabase/api/moby', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tripleWhaleAccessToken}`,
+      },
+      body: JSON.stringify({
+        question: queryText + " do not output into a visualization, give me the data in text form",
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to query Moby AI: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    let messages: string[] = [];
+    let debugMessages: string[] = [];
+
+    if (result.isError) {
+      messages.push(`Error: ${result.error || 'An unknown error occurred'}`);
+    } else {
+      if (result.assistantConclusion) {
+        let formattedConclusion = formatMessage(result.assistantConclusion);
+        if (formattedConclusion) {
+          messages.push(formattedConclusion);
+        }
+      }
+
+      if (result.responses && Array.isArray(result.responses)) {
+        for (const resp of result.responses) {
+          if (resp.assistant) {
+            let formattedResponse = formatMessage(resp.assistant);
+            if (formattedResponse) {
+              debugMessages.push(formattedResponse);
+            }
+          }
+        }
+      }
+
+      if (messages.length === 0 && debugMessages.length === 0) {
+        messages.push('Error: No response received from Triple Whale');
+      }
+    }
+
+    await client.chat.update({
+      channel: (body as any).channel.id,
+      ts: loadingMessage.ts!,
+      text: `📊 Here is your Triple Whale data for ${brand?.name}:`
+    });
+
+    const MAX_MESSAGE_LENGTH = 3500;
+    const messageChunks = [];
+
+    let fullMessage = messages.join('\n\n').trim();
+
+    if (debugMessages.length > 0) {
+      fullMessage += '\n\n*Debug Information:*\n' + debugMessages.join('\n\n');
+    }
+
+    fullMessage = fullMessage.replace(/\n{3,}/g, '\n\n').trim();
+
+    for (let i = 0; i < fullMessage.length; i += MAX_MESSAGE_LENGTH) {
+      messageChunks.push(fullMessage.slice(i, i + MAX_MESSAGE_LENGTH));
+    }
+
+    for (const chunk of messageChunks) {
+      await client.chat.postMessage({
+        channel: (body as any).channel.id,
+        text: chunk,
+        thread_ts: (body as any).message.thread_ts || (body as any).message.ts,
+        mrkdwn: true
+      });
+    }
+
+  } catch (error) {
+    console.error('Error processing query with brand:', error);
+    const errorMessage = error instanceof Error && error.message === 'Refresh token expired. User needs to reauthenticate.'
+      ? 'Your Triple Whale connection has expired. Please use `/connect` to reconnect.'
+      : 'Sorry, something went wrong. Please try again.';
+
+    await client.chat.postMessage({
+      channel: (body as any).channel.id,
+      text: errorMessage,
+      thread_ts: (body as any).message.thread_ts || (body as any).message.ts
+    });
+  }
+});
 
 const port = process.env.PORT || 3000
   ; (async () => {
