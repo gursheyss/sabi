@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth";
 
 export async function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === "/login") {
+    return NextResponse.next();
+  }
+
   const sessionCookie = getSessionCookie(request);
   if (!sessionCookie) {
     return NextResponse.redirect(new URL("/login", request.url));
