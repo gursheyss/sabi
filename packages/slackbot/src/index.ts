@@ -747,7 +747,11 @@ app.event('app_mention', async ({ event, client, say }) => {
       thread_ts: event.ts
     }) as { ts: string };
 
+    console.log('brand', brand);
+
     const tripleWhaleAccessToken = await TripleWhaleClient.getValidAccessToken(brand.id);
+
+    console.log('tripleWhaleAccessToken', tripleWhaleAccessToken);
 
     const response = await fetch('https://api.triplewhale.com/api/v2/orcabase/api/moby', {
       method: 'POST',
