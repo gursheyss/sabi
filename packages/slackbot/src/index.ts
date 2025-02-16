@@ -3,7 +3,7 @@ import { TripleWhaleClient } from './lib/triplewhale'
 import { eq, and, ne } from 'drizzle-orm'
 import { URLSearchParams } from 'url'
 import db from '@sabi/database'
-import { workspaceBrands, slackWorkspaces, brands, user, channelBrandMappings } from '@sabi/database/src/schema'
+import { workspaceBrands, slackWorkspaces, brands, user, channelBrandMappings, workspaceUsers } from '@sabi/database/src/schema'
 import { nanoid } from 'nanoid'
 
 function formatMathExpressions(text: string): string {
@@ -190,7 +190,7 @@ const app = new App({
           slackBotToken: installation.bot?.token,
           slackBotId: installation.bot?.id || '',
           slackBotUserId: installation.bot?.userId || '',
-          userId: dbUser.id,
+          createdAt: now,
           updatedAt: now
         }).onConflictDoUpdate({
           target: [slackWorkspaces.id],
@@ -199,10 +199,23 @@ const app = new App({
             slackBotToken: installation.bot?.token,
             slackBotId: installation.bot?.id || '',
             slackBotUserId: installation.bot?.userId || '',
-            userId: dbUser.id,
             updatedAt: now
           }
-        })
+        });
+
+        await db.insert(workspaceUsers).values({
+          workspaceId: teamId,
+          userId: dbUser.id,
+          role: 'admin',
+          createdAt: now,
+          updatedAt: now
+        }).onConflictDoUpdate({
+          target: [workspaceUsers.workspaceId, workspaceUsers.userId],
+          set: {
+            role: 'admin',
+            updatedAt: now
+          }
+        });
 
         if (installation.bot?.token) {
           try {
@@ -288,14 +301,14 @@ const app = new App({
       try {
         const result = await db.query.slackWorkspaces.findFirst({
           where: eq(slackWorkspaces.id, query.teamId || '')
-        })
+        });
 
         if (!result) {
-          throw new Error('No installation found')
+          throw new Error('No installation found');
         }
 
         if (!result.slackBotToken) {
-          throw new Error('No bot token found')
+          throw new Error('No bot token found');
         }
 
         return {
@@ -326,20 +339,21 @@ const app = new App({
           tokenType: 'bot',
           isEnterpriseInstall: false,
           appId: process.env.SLACK_CLIENT_ID!
-        }
+        };
       } catch (error) {
-        console.error('Failed to fetch installation:', error)
-        throw error
+        console.error('Failed to fetch installation:', error);
+        throw error;
       }
     },
     deleteInstallation: async (query) => {
       try {
-        const teamId = query.teamId || ''
-        await db.delete(workspaceBrands).where(eq(workspaceBrands.workspaceId, teamId))
-        await db.delete(slackWorkspaces).where(eq(slackWorkspaces.id, teamId))
+        const teamId = query.teamId || '';
+        await db.delete(workspaceBrands).where(eq(workspaceBrands.workspaceId, teamId));
+        await db.delete(workspaceUsers).where(eq(workspaceUsers.workspaceId, teamId));
+        await db.delete(slackWorkspaces).where(eq(slackWorkspaces.id, teamId));
       } catch (error) {
-        console.error('Failed to delete installation:', error)
-        throw error
+        console.error('Failed to delete installation:', error);
+        throw error;
       }
     }
   },
@@ -558,17 +572,20 @@ app.command('/select-brand', async ({ command, ack, respond }) => {
   await ack();
 
   try {
-    const workspace = await db.query.slackWorkspaces.findFirst({
-      where: eq(slackWorkspaces.id, command.team_id),
+    const workspaceUser = await db.query.workspaceUsers.findFirst({
+      where: eq(workspaceUsers.workspaceId, command.team_id),
+      with: {
+        user: true,
+      },
     });
 
-    if (!workspace) {
+    if (!workspaceUser) {
       await respond({ text: 'Workspace not found. Please reinstall the app.', response_type: 'ephemeral' });
       return;
     }
 
     const userBrands = await db.query.brands.findMany({
-      where: eq(brands.userId, workspace.userId!),
+      where: eq(brands.userId, workspaceUser.userId),
     });
 
     if (userBrands.length === 0) {

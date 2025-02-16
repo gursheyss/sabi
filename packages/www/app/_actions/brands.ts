@@ -12,6 +12,7 @@ import { channelBrandMappings } from "@sabi/database/src/schema";
 import { nanoid } from "nanoid";
 import { WebClient } from "@slack/web-api";
 import { revalidatePath } from 'next/cache';
+import { workspaceUsers } from "@sabi/database/src/schema";
 
 export async function getBrands() {
   const session = await auth.api.getSession({
@@ -36,22 +37,22 @@ export async function getConnectedSlackWorkspace() {
     throw new Error("Unauthorized");
   }
 
-  const workspace = await db.query.slackWorkspaces.findFirst({
-    where: eq(slackWorkspaces.userId, session.user.id),
+  const workspaceUser = await db.query.workspaceUsers.findFirst({
+    where: eq(workspaceUsers.userId, session.user.id),
+    with: {
+      workspace: {
+        with: {
+          channels: true,
+        },
+      },
+    },
   });
 
-  if (!workspace) {
+  if (!workspaceUser?.workspace) {
     return null;
   }
 
-  const channels = await db.query.channelBrandMappings.findMany({
-    where: eq(channelBrandMappings.workspaceId, workspace.id),
-  });
-
-  return {
-    ...workspace,
-    channels,
-  };
+  return workspaceUser.workspace;
 }
 
 export async function createBrand(data: { name: string; website: string; channelId: string }) {
@@ -63,8 +64,14 @@ export async function createBrand(data: { name: string; website: string; channel
     throw new Error("Unauthorized");
   }
 
-  const workspace = await getConnectedSlackWorkspace();
-  if (!workspace) {
+  const workspaceUser = await db.query.workspaceUsers.findFirst({
+    where: eq(workspaceUsers.userId, session.user.id),
+    with: {
+      workspace: true,
+    },
+  });
+
+  if (!workspaceUser?.workspace) {
     throw new Error("Please connect to Slack before creating a brand");
   }
 
@@ -112,7 +119,7 @@ export async function createBrand(data: { name: string; website: string; channel
     });
 
     await db.insert(workspaceBrands).values({
-      workspaceId: workspace.id,
+      workspaceId: workspaceUser.workspace.id,
       brandId: accountId,
       isDefault: 'true',
       createdAt: new Date(),
@@ -120,8 +127,14 @@ export async function createBrand(data: { name: string; website: string; channel
     });
 
     // Update the channel mapping
-    const channel = workspace.channels.find(c => c.channelId === data.channelId);
-    if (channel) {
+    const existingChannel = await db.query.channelBrandMappings.findFirst({
+      where: and(
+        eq(channelBrandMappings.workspaceId, workspaceUser.workspace.id),
+        eq(channelBrandMappings.channelId, data.channelId)
+      ),
+    });
+
+    if (existingChannel) {
       await db.update(channelBrandMappings)
         .set({
           brandId: accountId,
@@ -130,7 +143,7 @@ export async function createBrand(data: { name: string; website: string; channel
         .where(
           and(
             eq(channelBrandMappings.channelId, data.channelId),
-            eq(channelBrandMappings.workspaceId, workspace.id)
+            eq(channelBrandMappings.workspaceId, workspaceUser.workspace.id)
           )
         );
     }
@@ -139,7 +152,7 @@ export async function createBrand(data: { name: string; website: string; channel
       .set({ isDefault: 'false' })
       .where(
         and(
-          eq(workspaceBrands.workspaceId, workspace.id),
+          eq(workspaceBrands.workspaceId, workspaceUser.workspace.id),
           ne(workspaceBrands.brandId, accountId)
         )
       );
@@ -280,15 +293,18 @@ export async function getSlackChannels() {
     throw new Error("Unauthorized");
   }
 
-  const workspace = await db.query.slackWorkspaces.findFirst({
-    where: eq(slackWorkspaces.userId, session.user.id),
+  const workspaceUser = await db.query.workspaceUsers.findFirst({
+    where: eq(workspaceUsers.userId, session.user.id),
+    with: {
+      workspace: true,
+    },
   });
 
-  if (!workspace?.slackBotToken) {
+  if (!workspaceUser?.workspace?.slackBotToken) {
     throw new Error("No Slack workspace connected");
   }
 
-  const slack = new WebClient(workspace.slackBotToken);
+  const slack = new WebClient(workspaceUser.workspace.slackBotToken);
   const channelsResponse = await slack.conversations.list({
     types: "public_channel",
     exclude_archived: true,

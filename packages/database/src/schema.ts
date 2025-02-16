@@ -22,6 +22,7 @@ export const user = pgTable("user", {
 
 export const userRelations = relations(user, ({ many }) => ({
   brands: many(brands),
+  workspaces: many(workspaceUsers),
 }));
 
 export const session = pgTable("session", {
@@ -70,17 +71,34 @@ export const slackWorkspaces = pgTable('slack_workspaces', {
   slackBotToken: text('slack_bot_token'),
   slackBotId: text('slack_bot_id'),
   slackBotUserId: text('slack_bot_user_id'),
-  userId: text('user_id').references(() => user.id),
   createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const slackWorkspacesRelations = relations(slackWorkspaces, ({ one, many }) => ({
+export const workspaceUsers = pgTable('workspace_users', {
+  workspaceId: text('workspace_id').notNull().references(() => slackWorkspaces.id),
+  userId: text('user_id').notNull().references(() => user.id),
+  role: text('role').notNull().default('member'), // Can be 'admin' or 'member'
+  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  pk: primaryKey(table.workspaceId, table.userId),
+}));
+
+export const slackWorkspacesRelations = relations(slackWorkspaces, ({ many }) => ({
+  users: many(workspaceUsers),
+  channels: many(channelBrandMappings),
+}));
+
+export const workspaceUsersRelations = relations(workspaceUsers, ({ one }) => ({
+  workspace: one(slackWorkspaces, {
+    fields: [workspaceUsers.workspaceId],
+    references: [slackWorkspaces.id],
+  }),
   user: one(user, {
-    fields: [slackWorkspaces.userId],
+    fields: [workspaceUsers.userId],
     references: [user.id],
   }),
-  channels: many(channelBrandMappings),
 }));
 
 export const brands = pgTable('brands', {
@@ -144,3 +162,4 @@ export type SlackWorkspace = InferSelectModel<typeof slackWorkspaces>;
 export type Brand = InferSelectModel<typeof brands>;
 export type WorkspaceBrand = InferSelectModel<typeof workspaceBrands>;
 export type ChannelBrandMapping = InferSelectModel<typeof channelBrandMappings>;
+export type WorkspaceUser = InferSelectModel<typeof workspaceUsers>;
