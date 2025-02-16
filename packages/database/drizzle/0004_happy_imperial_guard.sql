@@ -1,0 +1,1 @@
+ALTER TABLE "channel_brand_mappings" ADD CONSTRAINT "channel_brand_mappings_workspace_id_channel_id_unique" UNIQUE("workspace_id","channel_id");

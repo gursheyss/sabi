@@ -7,6 +7,7 @@ import {
   pgTable,
   primaryKey,
   boolean,
+  unique,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -119,7 +120,9 @@ export const channelBrandMappings = pgTable('channel_brand_mappings', {
   brandId: text('brand_id').references(() => brands.id),
   createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => ({
+  workspaceChannelUnq: unique().on(table.workspaceId, table.channelId)
+}));
 
 export const channelBrandMappingsRelations = relations(channelBrandMappings, ({ one }) => ({
   workspace: one(slackWorkspaces, {
