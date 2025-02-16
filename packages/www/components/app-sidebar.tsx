@@ -34,13 +34,13 @@ const navMain = [
   },
 ];
 
-const navSecondary = [
-  {
-    title: "Connect to Slack",
-    url: "https://lighthouse-slackbot.up.railway.app/slack/install",
-    icon: Slack,
-  },
-];
+// const navSecondary = [
+//   {
+//     title: "Connect to Slack",
+//     url: "https://lighthouse-slackbot.up.railway.app/slack/install",
+//     icon: Slack,
+//   },
+// ];
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   return (
@@ -64,7 +64,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMain} />
-        <NavSecondary items={navSecondary} className="mt-auto" />
+        {/* <NavSecondary items={navSecondary} className="mt-auto" /> */}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />
