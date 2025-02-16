@@ -11,6 +11,7 @@ import { TripleWhaleClient } from "@sabi/triplewhale";
 import { channelBrandMappings } from "@sabi/database/src/schema";
 import { nanoid } from "nanoid";
 import { WebClient } from "@slack/web-api";
+import { revalidatePath } from 'next/cache';
 
 export async function getBrands() {
   const session = await auth.api.getSession({
@@ -142,6 +143,8 @@ export async function createBrand(data: { name: string; website: string; channel
           ne(workspaceBrands.brandId, accountId)
         )
       );
+
+    revalidatePath('/');
 
     return {
       authUrl: `https://api.triplewhale.com/api/v2/orcabase/dev/auth?${params.toString()}`
