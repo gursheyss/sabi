@@ -358,6 +358,7 @@ const app = new App({
     }
   },
   installerOptions: {
+    stateVerification: true,
     directInstall: true,
     callbackOptions: {
       success: (installation, installOptions, req, res) => {

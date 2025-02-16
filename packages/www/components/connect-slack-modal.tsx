@@ -11,13 +11,7 @@ import {
 } from "@/components/ui/dialog";
 
 export function ConnectSlackModal({ open }: { open: boolean }) {
-  const installUrl = React.useMemo(() => {
-    const url = new URL(
-      "https://lighthouse-slackbot.up.railway.app/slack/install"
-    );
-    url.searchParams.set("state", "initial_install");
-    return url.toString();
-  }, []);
+  const installUrl = "https://slack.heysabi.com/slack/install";
 
   return (
     <Dialog open={open}>
@@ -34,7 +28,9 @@ export function ConnectSlackModal({ open }: { open: boolean }) {
         </DialogHeader>
         <div className="flex flex-col items-center space-y-4 py-4">
           <Button asChild className="w-full">
-            <a href={installUrl}>Connect Slack Workspace</a>
+            <a href={installUrl} target="_blank" rel="noopener noreferrer">
+              Connect Slack Workspace
+            </a>
           </Button>
         </div>
       </DialogContent>
