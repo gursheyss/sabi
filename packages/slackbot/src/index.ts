@@ -228,6 +228,7 @@ const app = new App({
                       workspaceId: teamId,
                       channelId: channel.id,
                       channelName: channel.name,
+                      brandId: null,
                       createdAt: now,
                       updatedAt: now
                     });
