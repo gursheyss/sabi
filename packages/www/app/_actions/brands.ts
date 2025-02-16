@@ -67,9 +67,7 @@ export async function createBrand(data: { name: string; website: string; channel
     throw new Error("Please connect to Slack before creating a brand");
   }
 
-  const accountId = `${session.user.email.split('@')[0]}_${data.name}_sabi`;
-
-  console.log('accountId', accountId);
+  const accountId = `${session.user.email.split('@')[0]}_${data.name.trim().replace(/\s+/g, '_')}_sabi`;
 
   try {
     const registrationResponse = await fetch('https://api.triplewhale.com/api/v2/orcabase/dev/register-account', {
