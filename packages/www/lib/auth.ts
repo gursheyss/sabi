@@ -8,7 +8,9 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
   },
-  trustedOrigins: ["http://localhost:8080", "https://www.app.heysabi.com", "http://localhost:3000"],
+  trustedOrigins: [
+    "https://www.app.heysabi.com",
+  ],
   database: drizzleAdapter(db, {
     provider: "pg"
   }),
