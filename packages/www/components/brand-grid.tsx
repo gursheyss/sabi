@@ -7,22 +7,27 @@ import { BrandCard } from "@/components/brand-card";
 import { AddBrandModal } from "@/components/add-brand-modal";
 import { createBrand } from "@/app/_actions/brands";
 import { toast } from "sonner";
-import type { Brand as DBBrand } from "@sabi/database/src/schema";
+import type {
+  Brand as DBBrand,
+  ChannelBrandMapping,
+} from "@sabi/database/src/schema";
 
 interface BrandGridProps {
   initialBrands: DBBrand[];
   hasSlackWorkspace: boolean;
+  channels?: ChannelBrandMapping[];
 }
 
 export function BrandGrid({
   initialBrands,
   hasSlackWorkspace,
+  channels = [],
 }: BrandGridProps) {
   const [brands] = React.useState<DBBrand[]>(initialBrands);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   const handleSave = React.useCallback(
-    async (data: { name: string; website: string }) => {
+    async (data: { name: string; website: string; channelId: string }) => {
       if (!hasSlackWorkspace) {
         toast.error("Please connect to Slack before creating a brand");
         throw new Error("Slack workspace not connected");
@@ -96,6 +101,7 @@ export function BrandGrid({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSave}
+        channels={channels.filter((channel) => !channel.brandId)}
       />
     </div>
   );

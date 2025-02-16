@@ -31,11 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-interface SlackBrand {
-  id: string;
-  name: string;
-}
+import type { ChannelBrandMapping } from "@sabi/database/src/schema";
 
 const brandFormSchema = z.object({
   name: z.string().min(2, {
@@ -44,8 +40,8 @@ const brandFormSchema = z.object({
   website: z.string().url({
     message: "Please enter a valid website URL.",
   }),
-  slackBrandId: z.string({
-    required_error: "Please select a Slack brand to connect.",
+  channelId: z.string({
+    required_error: "Please select a channel to connect.",
   }),
 });
 
@@ -54,21 +50,21 @@ type BrandFormValues = z.infer<typeof brandFormSchema>;
 const defaultValues: Partial<BrandFormValues> = {
   name: "",
   website: "",
-  slackBrandId: "",
+  channelId: "",
 };
 
 interface AddBrandModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (values: BrandFormValues) => Promise<{ authUrl: string }>;
-  slackBrands?: SlackBrand[];
+  channels: ChannelBrandMapping[];
 }
 
 export function AddBrandModal({
   isOpen,
   onClose,
   onSave,
-  slackBrands = [],
+  channels = [],
 }: AddBrandModalProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const form = useForm<BrandFormValues>({
@@ -107,47 +103,39 @@ export function AddBrandModal({
     }
   }
 
-  const selectedBrand = slackBrands.find(
-    (brand) => brand.id === form.watch("slackBrandId")
-  );
-
-  React.useEffect(() => {
-    if (selectedBrand) {
-      form.setValue("name", selectedBrand.name);
-    }
-  }, [selectedBrand, form]);
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add New Brand</DialogTitle>
           <DialogDescription>
-            Select a brand from your Slack workspace to connect with Triple
-            Whale.
+            Create a new brand and connect it to a Slack channel.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="slackBrandId"
+              name="channelId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Slack Brand</FormLabel>
+                  <FormLabel>Slack Channel</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a brand from Slack" />
+                        <SelectValue placeholder="Select a channel" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {slackBrands.map((brand) => (
-                        <SelectItem key={brand.id} value={brand.id}>
-                          {brand.name}
+                      {channels.map((channel) => (
+                        <SelectItem
+                          key={channel.channelId}
+                          value={channel.channelId}
+                        >
+                          #{channel.channelName}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -163,11 +151,7 @@ export function AddBrandModal({
                 <FormItem>
                   <FormLabel>Brand Name</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter brand name"
-                      {...field}
-                      disabled={!!selectedBrand}
-                    />
+                    <Input placeholder="Enter brand name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

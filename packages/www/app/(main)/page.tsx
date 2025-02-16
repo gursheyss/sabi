@@ -9,7 +9,11 @@ export default async function HomePage() {
 
   return (
     <div className="p-4 pt-0">
-      <BrandGrid initialBrands={brands} hasSlackWorkspace={!!slackWorkspace} />
+      <BrandGrid
+        initialBrands={brands}
+        hasSlackWorkspace={!!slackWorkspace}
+        channels={slackWorkspace?.channels || []}
+      />
     </div>
   );
 }

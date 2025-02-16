@@ -39,10 +39,21 @@ export async function getConnectedSlackWorkspace() {
     where: eq(slackWorkspaces.userId, session.user.id),
   });
 
-  return workspace;
+  if (!workspace) {
+    return null;
+  }
+
+  const channels = await db.query.channelBrandMappings.findMany({
+    where: eq(channelBrandMappings.workspaceId, workspace.id),
+  });
+
+  return {
+    ...workspace,
+    channels,
+  };
 }
 
-export async function createBrand(data: { name: string; website: string }) {
+export async function createBrand(data: { name: string; website: string; channelId: string }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -108,6 +119,22 @@ export async function createBrand(data: { name: string; website: string }) {
       createdAt: new Date(),
       updatedAt: new Date()
     });
+
+    // Update the channel mapping
+    const channel = workspace.channels.find(c => c.channelId === data.channelId);
+    if (channel) {
+      await db.update(channelBrandMappings)
+        .set({
+          brandId: accountId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(channelBrandMappings.channelId, data.channelId),
+            eq(channelBrandMappings.workspaceId, workspace.id)
+          )
+        );
+    }
 
     await db.update(workspaceBrands)
       .set({ isDefault: 'false' })

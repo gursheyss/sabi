@@ -75,11 +75,12 @@ export const slackWorkspaces = pgTable('slack_workspaces', {
   updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const slackWorkspacesRelations = relations(slackWorkspaces, ({ one }) => ({
+export const slackWorkspacesRelations = relations(slackWorkspaces, ({ one, many }) => ({
   user: one(user, {
     fields: [slackWorkspaces.userId],
     references: [user.id],
   }),
+  channels: many(channelBrandMappings),
 }));
 
 export const brands = pgTable('brands', {

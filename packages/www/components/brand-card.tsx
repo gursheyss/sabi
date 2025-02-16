@@ -24,23 +24,17 @@ import {
 import { toast } from "sonner";
 import { RefreshCw, Settings } from "lucide-react";
 import { MultiSelect } from "@/components/ui/multi-select";
-
-interface Brand {
-  id: string;
-  name: string;
-  website: string;
-  connected: boolean;
-}
-
-interface Channel {
-  id: string;
-  name: string;
-}
+import type {
+  Brand as DBBrand,
+  ChannelBrandMapping,
+} from "@sabi/database/src/schema";
 
 interface BrandCardProps {
-  brand: Brand;
+  brand: Pick<DBBrand, "id" | "name" | "website"> & {
+    connected: boolean;
+  };
   workspaceId?: string;
-  channels?: Channel[];
+  channels?: Pick<ChannelBrandMapping, "channelId" | "channelName">[];
   mappedChannelIds?: string[];
 }
 
@@ -147,8 +141,8 @@ export function BrandCard({
                   <label className="text-sm font-medium">Select Channels</label>
                   <MultiSelect
                     options={channels.map((channel) => ({
-                      label: `#${channel.name}`,
-                      value: channel.id,
+                      label: `#${channel.channelName}`,
+                      value: channel.channelId,
                     }))}
                     selected={selectedChannels}
                     onChange={setSelectedChannels}
