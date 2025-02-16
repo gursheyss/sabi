@@ -9,7 +9,7 @@ export const auth = betterAuth({
     autoSignIn: true,
   },
   trustedOrigins: [
-    "https://www.app.heysabi.com",
+    "https://app.heysabi.com",
   ],
   database: drizzleAdapter(db, {
     provider: "pg"
