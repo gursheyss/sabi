@@ -51,14 +51,7 @@ export function BrandGrid({
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div className="flex items-center justify-end">
-        {!hasSlackWorkspace ? (
-          <Button asChild>
-            <a href="https://lighthouse-slackbot.up.railway.app/slack/install">
-              <Slack className="mr-2 h-4 w-4" />
-              Connect to Slack
-            </a>
-          </Button>
-        ) : (
+        {hasSlackWorkspace && (
           <Button onClick={() => setIsModalOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Brand
