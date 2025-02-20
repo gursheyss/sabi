@@ -10,44 +10,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   getIntegrationsUrl,
   refreshBrandConnection,
-  updateChannelMappings,
 } from "@/app/_actions/brands";
 import { toast } from "sonner";
-import { RefreshCw, Settings } from "lucide-react";
-import { MultiSelect } from "@/components/ui/multi-select";
-import type {
-  Brand as DBBrand,
-  ChannelBrandMapping,
-} from "@sabi/database/src/schema";
+import { ExternalLink, RefreshCw, LinkIcon } from "lucide-react";
+import type { Brand as DBBrand } from "@sabi/database/src/schema";
+import { Badge } from "@/components/ui/badge";
 
 interface BrandCardProps {
   brand: Pick<DBBrand, "id" | "name" | "website"> & {
     connected: boolean;
   };
-  workspaceId?: string;
-  channels?: Pick<ChannelBrandMapping, "channelId" | "channelName">[];
-  mappedChannelIds?: string[];
+  channelNames: string[];
 }
 
-export function BrandCard({
-  brand,
-  workspaceId,
-  channels = [],
-  mappedChannelIds = [],
-}: BrandCardProps) {
-  const [selectedChannels, setSelectedChannels] =
-    React.useState<string[]>(mappedChannelIds);
-  const [isUpdating, setIsUpdating] = React.useState(false);
-
+export function BrandCard({ brand, channelNames }: BrandCardProps) {
   const handleConnect = React.useCallback(async () => {
     try {
       const integrationsUrl = await getIntegrationsUrl(brand.id);
@@ -71,95 +49,56 @@ export function BrandCard({
     }
   }, [brand.id]);
 
-  const handleUpdateChannels = React.useCallback(async () => {
-    if (!workspaceId) {
-      toast.error("No workspace connected");
-      return;
-    }
-
-    try {
-      setIsUpdating(true);
-      await updateChannelMappings({
-        brandId: brand.id,
-        workspaceId,
-        channelIds: selectedChannels,
-      });
-      toast.success("Channel mappings updated successfully");
-    } catch (error) {
-      console.error("Error updating channel mappings:", error);
-      toast.error("Failed to update channel mappings. Please try again.");
-    } finally {
-      setIsUpdating(false);
-    }
-  }, [brand.id, workspaceId, selectedChannels]);
-
   return (
-    <Card className="flex flex-col">
-      <CardHeader>
-        <CardTitle className="text-xl">{brand.name}</CardTitle>
+    <Card className="flex flex-col transition-all duration-300 hover:shadow-md">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between text-xl">
+          <span className="truncate">{brand.name}</span>
+          <Badge
+            variant={brand.connected ? "default" : "secondary"}
+            className="ml-2"
+          >
+            {brand.connected ? "Connected" : "Not Connected"}
+          </Badge>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="flex-grow">
+      <CardContent className="flex-grow space-y-2 pb-2">
         <a
           href={brand.website}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-muted-foreground hover:underline"
+          className="flex items-center text-sm text-muted-foreground hover:text-primary hover:underline"
         >
+          <LinkIcon className="mr-1 h-4 w-4" />
           {brand.website}
         </a>
+        {channelNames.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {channelNames.map((channel) => (
+              <Badge key={channel} variant="outline">
+                #{channel}
+              </Badge>
+            ))}
+          </div>
+        )}
       </CardContent>
-      <CardFooter className="flex flex-col gap-2">
+      <CardFooter className="flex flex-col gap-2 pt-2">
         <Button
           className="w-full"
           variant={brand.connected ? "secondary" : "default"}
           onClick={handleConnect}
         >
           {brand.connected ? "Manage Connections" : "Connect Accounts"}
+          <ExternalLink className="ml-2 h-4 w-4" />
         </Button>
         <Button
           className="w-full"
           variant="outline"
           onClick={handleRefreshConnection}
         >
-          <RefreshCw className="mr-2 h-4 w-4" />
           Refresh Connection
+          <RefreshCw className="mr-2 h-4 w-4" />
         </Button>
-        {workspaceId && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="w-full" variant="outline">
-                <Settings className="mr-2 h-4 w-4" />
-                Channel Mappings
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Map Channels to {brand.name}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Select Channels</label>
-                  <MultiSelect
-                    options={channels.map((channel) => ({
-                      label: `#${channel.channelName}`,
-                      value: channel.channelId,
-                    }))}
-                    selected={selectedChannels}
-                    onChange={setSelectedChannels}
-                    placeholder="Select channels..."
-                  />
-                </div>
-                <Button
-                  className="w-full"
-                  onClick={handleUpdateChannels}
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? "Updating..." : "Update Mappings"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
       </CardFooter>
     </Card>
   );

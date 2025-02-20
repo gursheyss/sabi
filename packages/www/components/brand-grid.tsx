@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Slack } from "lucide-react";
+import { Plus } from "lucide-react";
 import { BrandCard } from "@/components/brand-card";
 import { AddBrandModal } from "@/components/add-brand-modal";
 import { createBrand } from "@/app/_actions/brands";
@@ -69,6 +69,9 @@ export function BrandGrid({
               website: brand.website,
               connected: !!brand.tripleWhaleAccessToken,
             }}
+            channelNames={channels
+              .filter((channel) => channel.brandId === brand.id)
+              .map((channel) => channel.channelName)}
           />
         ))}
         {brands.length === 0 && (
