@@ -292,22 +292,6 @@ const app = new App({
                 }
               }
             }
-
-            const defaultChannel = channelsResponse.channels?.find(
-              channel => channel.name === 'general' || channel.name === 'random'
-            );
-
-            if (defaultChannel?.id) {
-              try {
-                await app.client.chat.postMessage({
-                  token: installation.bot.token,
-                  channel: defaultChannel.id,
-                  text: '👋 Hello! I\'m the Triple Whale bot. Use `/connect` to connect your workspace to Triple Whale accounts, and then you can mention me in any channel to ask questions about your data!'
-                });
-              } catch (error) {
-                console.error('Failed to send welcome message:', error);
-              }
-            }
           } catch (error) {
             console.error('Failed to fetch or store channels:', error);
           }
