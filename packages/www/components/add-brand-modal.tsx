@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ChannelBrandMapping } from "@sabi/database/src/schema";
+import { RefreshCw } from "lucide-react";
 
 const brandFormSchema = z.object({
   name: z.string().min(2, {
@@ -71,6 +71,13 @@ export function AddBrandModal({
     resolver: zodResolver(brandFormSchema),
     defaultValues,
   });
+
+  const handleRefreshChannels = () => {
+    const installUrl = "https://slack.heysabi.com/slack/install";
+    window.open(installUrl, "_blank");
+    toast.success("Please complete the Slack authorization in the new tab");
+    onClose();
+  };
 
   async function onSubmit(data: BrandFormValues) {
     setIsLoading(true);
@@ -120,26 +127,46 @@ export function AddBrandModal({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Slack Channel</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a channel" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {channels.map((channel) => (
-                        <SelectItem
-                          key={channel.channelId}
-                          value={channel.channelId}
-                        >
-                          #{channel.channelName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a channel" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {channels.map((channel) => (
+                            <SelectItem
+                              key={channel.channelId}
+                              value={channel.channelId}
+                              disabled={!!channel.brandId}
+                              className={
+                                channel.brandId
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
+                              }
+                            >
+                              #{channel.channelName}
+                              {channel.brandId && " (Connected)"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleRefreshChannels}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      <span className="sr-only">Refresh channels</span>
+                    </Button>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

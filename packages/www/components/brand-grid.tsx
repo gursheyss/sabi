@@ -94,7 +94,7 @@ export function BrandGrid({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSave}
-        channels={channels.filter((channel) => !channel.brandId)}
+        channels={channels}
       />
     </div>
   );
