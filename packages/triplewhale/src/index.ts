@@ -124,6 +124,6 @@ export class TripleWhaleClient {
       'token': signInToken
     });
 
-    return `https://app.triplewhale.com/orcabase/integrations?${params.toString()}`;
+    return `https://orcabase.app.triplewhale.com/integrations?${params.toString()}`;
   }
 } 

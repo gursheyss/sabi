@@ -1,10 +1,10 @@
 import { App } from '@slack/bolt'
-import { TripleWhaleClient } from './lib/triplewhale'
 import { eq, and, ne } from 'drizzle-orm'
 import { URLSearchParams } from 'url'
 import db from '@sabi/database'
 import { workspaceBrands, slackWorkspaces, brands, user, channelBrandMappings, workspaceUsers } from '@sabi/database/src/schema'
 import { nanoid } from 'nanoid'
+import { TripleWhaleClient } from '@sabi/triplewhale'
 
 function formatMathExpressions(text: string): string {
   return text.replace(/\\\((.*?)\\\)/g, (_, expression) => {
