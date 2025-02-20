@@ -231,11 +231,43 @@ const app = new App({
                 where: eq(channelBrandMappings.workspaceId, teamId)
               });
 
-              const existingChannelIds = new Set(existingMappings.map(m => m.channelId));
+              const currentChannelIds = new Set(channelsResponse.channels.map(c => c.id));
+
+              for (const mapping of existingMappings) {
+                if (!currentChannelIds.has(mapping.channelId)) {
+                  await db.delete(channelBrandMappings)
+                    .where(
+                      and(
+                        eq(channelBrandMappings.workspaceId, teamId),
+                        eq(channelBrandMappings.channelId, mapping.channelId)
+                      )
+                    );
+                }
+              }
+
+              const existingChannelMap = new Map(
+                existingMappings.map(m => [m.channelId, m])
+              );
 
               for (const channel of channelsResponse.channels) {
                 if (channel.id && channel.name) {
-                  if (!existingChannelIds.has(channel.id)) {
+                  const existingMapping = existingChannelMap.get(channel.id);
+
+                  if (existingMapping) {
+                    if (existingMapping.channelName !== channel.name) {
+                      await db.update(channelBrandMappings)
+                        .set({
+                          channelName: channel.name,
+                          updatedAt: now
+                        })
+                        .where(
+                          and(
+                            eq(channelBrandMappings.workspaceId, teamId),
+                            eq(channelBrandMappings.channelId, channel.id)
+                          )
+                        );
+                    }
+                  } else {
                     await db.insert(channelBrandMappings).values({
                       id: nanoid(),
                       workspaceId: teamId,
@@ -245,18 +277,6 @@ const app = new App({
                       createdAt: now,
                       updatedAt: now
                     });
-                  } else {
-                    await db.update(channelBrandMappings)
-                      .set({
-                        channelName: channel.name,
-                        updatedAt: now
-                      })
-                      .where(
-                        and(
-                          eq(channelBrandMappings.workspaceId, teamId),
-                          eq(channelBrandMappings.channelId, channel.id)
-                        )
-                      );
                   }
 
                   try {
